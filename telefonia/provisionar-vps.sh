@@ -39,9 +39,10 @@ bantime  = 86400
 JAIL
 systemctl restart fail2ban
 
-echo "==> 5/5  Subindo o Asterisk"
+echo "==> 5/5  Gerando config e subindo o Asterisk"
 cd "$(dirname "$0")"
 [ -f .env ] || { echo "!! crie o .env a partir de .env.example antes"; exit 1; }
+bash gerar-config.sh
 docker compose -f docker-compose.vps.yml up -d
 
 sleep 8

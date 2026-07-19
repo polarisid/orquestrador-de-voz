@@ -2,3 +2,5 @@ dados/
 node_modules/
 .env
 telefonia/.env
+telefonia/conf/pjsip.conf
+telefonia/conf/ari.conf

@@ -1,0 +1,61 @@
+; ============================================================
+; Tronco iFalei via REGISTRO de ramal (usuário + senha)
+; Substitua os valores pelo seu ramal. NUNCA versione este arquivo
+; com a senha real — veja telefonia/.env.example
+; ============================================================
+
+[global]
+type=global
+endpoint_identifier_order=ip,username,anonymous
+
+[transport-udp]
+type=transport
+protocol=udp
+bind=0.0.0.0
+; Descomente e preencha se estiver atrás de NAT doméstico:
+; external_media_address=SEU_IP_PUBLICO
+; external_signaling_address=SEU_IP_PUBLICO
+; local_net=192.168.0.0/16
+
+; ---------- registro no servidor da iFalei ----------
+[ifalei-reg]
+type=registration
+transport=transport-udp
+outbound_auth=ifalei-auth
+server_uri=sip:${IFALEI_SERVIDOR}
+client_uri=sip:${IFALEI_USUARIO}@${IFALEI_SERVIDOR}
+retry_interval=60
+forbidden_retry_interval=300
+expiration=300          ; casa com "Atualizar Registro 300" do softphone
+
+[ifalei-auth]
+type=auth
+auth_type=userpass
+username=${IFALEI_USUARIO}
+password=${IFALEI_SENHA}
+
+[ifalei]
+type=aor
+contact=sip:${IFALEI_SERVIDOR}
+
+[ifalei]
+type=endpoint
+transport=transport-udp
+context=saida-triagem
+disallow=all
+allow=alaw               ; G.711 — evita transcodificação, menor latência
+allow=ulaw
+aors=ifalei
+outbound_auth=ifalei-auth
+from_user=${IFALEI_USUARIO}
+from_domain=${IFALEI_SERVIDOR}
+direct_media=no          ; o áudio TEM que passar pelo Asterisk
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes
+dtmf_mode=rfc4733
+
+[ifalei]
+type=identify
+endpoint=ifalei
+match=${IFALEI_SERVIDOR}
