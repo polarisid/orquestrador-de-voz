@@ -29,6 +29,7 @@ create table if not exists chamadas_triagem (
   codigo_erro text,
   codigo_erro_descricao text,
   divergiu_abertura boolean,
+  roteiro_customizado boolean default false,
   triagem_analise jsonb,
 
   -- documentação

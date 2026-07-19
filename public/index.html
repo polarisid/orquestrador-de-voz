@@ -157,6 +157,36 @@ button:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
   display:flex;gap:14px;flex-wrap:wrap;
 }
 .dados b{font-weight:500;color:var(--tinta)}
+.marca-roteiro{color:var(--sinal);font-weight:600}
+
+/* ---------- abas ---------- */
+.abas{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--linha)}
+.aba{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--aco);background:none;border:0;width:auto;
+  padding:0 2px 9px;margin-right:22px;border-radius:0;cursor:pointer;
+  border-bottom:2px solid transparent;
+}
+.aba:hover{background:none;color:var(--tinta)}
+.aba[aria-selected="true"]{color:var(--tinta);border-bottom-color:var(--sinal)}
+[role="tabpanel"][hidden]{display:none}
+
+/* ---------- editor de roteiro ---------- */
+.explica{font-size:13px;color:var(--aco);margin:0 0 12px;max-width:62ch}
+#roteiro{
+  width:100%;min-height:60vh;
+  font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.65;
+  padding:14px 15px;tab-size:2;
+}
+.barra-roteiro{
+  display:flex;align-items:center;gap:12px;margin-top:11px;flex-wrap:wrap;
+}
+.barra-roteiro button{width:auto;padding:8px 14px;font-size:13px}
+.btn-fraco{background:transparent;color:var(--aco);border:1px solid var(--linha)}
+.btn-fraco:hover{background:var(--carta);color:var(--tinta)}
+.estado-roteiro{font-size:12.5px;color:var(--aco);margin-left:auto}
+.estado-roteiro.editado{color:var(--espera);font-weight:600}
 .corrigido{color:var(--espera);font-weight:600}
 </style>
 </head>
@@ -209,8 +239,23 @@ button:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
   </section>
 
   <section class="painel">
-    <h2>Chamadas</h2>
-    <div id="lista"></div>
+    <div class="abas" role="tablist">
+      <button class="aba" role="tab" id="aba-chamadas" aria-controls="pnl-chamadas" aria-selected="true">Chamadas</button>
+      <button class="aba" role="tab" id="aba-roteiro"  aria-controls="pnl-roteiro"  aria-selected="false">Roteiro</button>
+    </div>
+
+    <div id="pnl-chamadas" role="tabpanel" aria-labelledby="aba-chamadas">
+      <div id="lista"></div>
+    </div>
+
+    <div id="pnl-roteiro" role="tabpanel" aria-labelledby="aba-roteiro" hidden>
+      <p class="explica">É isto que o agente recebe antes de discar. Os dados da OS entram automaticamente conforme você preenche o formulário. Edite à vontade — o que estiver aqui quando você clicar em ligar é o que vale para esta chamada.</p>
+      <textarea id="roteiro" spellcheck="false"></textarea>
+      <div class="barra-roteiro">
+        <button type="button" class="btn-fraco" id="btn-restaurar">Restaurar padrão</button>
+        <span class="estado-roteiro" id="estado-roteiro">seguindo o padrão</span>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -259,6 +304,7 @@ function cartao(c){
   if (c.restricao_horario) dados.push(`<span>horário: <b>${esc(c.restricao_horario)}</b></span>`);
   if (c.codigo_erro) dados.push(`<span>erro <b class="mono">${esc(c.codigo_erro)}</b></span>`);
   if (c.doc_canal) dados.push(`<span>docs por <b>${esc(c.doc_canal)}</b></span>`);
+  if (c.roteiro_customizado) dados.push(`<span class="marca-roteiro">roteiro ajustado</span>`);
   if (c.duracao_segundos) dados.push(`<span><b class="mono">${Math.floor(c.duracao_segundos/60)}m${String(c.duracao_segundos%60).padStart(2,'0')}s</b></span>`);
 
   return `<article class="chamada">
@@ -287,6 +333,62 @@ async function atualizar(){
   }
 }
 
+/* ---------- abas ---------- */
+const abas = [...document.querySelectorAll('.aba')];
+abas.forEach(a => a.addEventListener('click', () => {
+  abas.forEach(o => {
+    const ativa = o === a;
+    o.setAttribute('aria-selected', String(ativa));
+    document.getElementById(o.getAttribute('aria-controls')).hidden = !ativa;
+  });
+}));
+
+/* ---------- roteiro ---------- */
+const campoRoteiro = document.getElementById('roteiro');
+const estado = document.getElementById('estado-roteiro');
+let editadoAMao = false;
+let ultimoPadrao = '';
+
+function marcarEstado(){
+  estado.textContent = editadoAMao ? 'editado à mão' : 'seguindo o padrão';
+  estado.className = 'estado-roteiro' + (editadoAMao ? ' editado' : '');
+}
+
+async function montarRoteiro(){
+  const dados = Object.fromEntries(new FormData(document.getElementById('form')));
+  delete dados.roteiro;
+  try{
+    const r = await fetch('/roteiro/preview', {
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify(dados),
+    });
+    const { roteiro } = await r.json();
+    ultimoPadrao = roteiro;
+    if (!editadoAMao) campoRoteiro.value = roteiro;
+  }catch{}
+}
+
+let debounce;
+document.getElementById('form').addEventListener('input', ev => {
+  if (ev.target === campoRoteiro) return;
+  clearTimeout(debounce);
+  debounce = setTimeout(montarRoteiro, 350);
+});
+
+campoRoteiro.addEventListener('input', () => {
+  editadoAMao = campoRoteiro.value.trim() !== ultimoPadrao.trim();
+  marcarEstado();
+});
+
+document.getElementById('btn-restaurar').addEventListener('click', () => {
+  editadoAMao = false;
+  campoRoteiro.value = ultimoPadrao;
+  marcarEstado();
+});
+
+montarRoteiro();
+
 const aviso = (tipo, txt) => {
   const el = document.getElementById('aviso');
   el.className = 'aviso ' + tipo;
@@ -298,6 +400,8 @@ document.getElementById('form').addEventListener('submit', async ev => {
   ev.preventDefault();
   const btn = document.getElementById('btn');
   const dados = Object.fromEntries(new FormData(ev.target));
+  // Só manda roteiro se o operador realmente mexeu; senão o servidor monta o padrão.
+  if (editadoAMao) dados.roteiro = campoRoteiro.value;
   btn.disabled = true; btn.textContent = 'Discando…';
   try{
     const r = await fetch('/calls', {
@@ -311,8 +415,9 @@ document.getElementById('form').addEventListener('submit', async ev => {
     } else if (!r.ok) {
       aviso('erro','A chamada não saiu. Verifique o tronco e tente de novo.');
     } else {
-      aviso('ok','Discando para o cliente. Acompanhe ao lado.');
+      aviso('ok','Discando para o cliente. Acompanhe na aba Chamadas.');
       ev.target.reset();
+      editadoAMao = false; marcarEstado(); montarRoteiro();
     }
   }catch{
     aviso('erro','Sem resposta do servidor.');

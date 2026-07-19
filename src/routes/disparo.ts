@@ -12,6 +12,8 @@ interface DisparoBody {
   produto_modelo: string;
   produto_linha: string;     // RAC | REF | WSM | TV | MWO
   sintoma_declarado: string;
+  /** Roteiro editado no painel. Vazio = usa o padrão. */
+  roteiro?: string;
 }
 
 export async function rotasDisparo(app: FastifyInstance) {
@@ -35,14 +37,16 @@ export async function rotasDisparo(app: FastifyInstance) {
 
     const chamada = await voz.originar({
       destino: `+55${b.telefone}`,
-      prompt: montarPrompt({
-        os: b.os_numero,
-        clienteNome: b.cliente_nome,
-        clienteEndereco: b.cliente_endereco,
-        produtoModelo: b.produto_modelo,
-        produtoLinha: b.produto_linha,
-        sintomaDeclarado: b.sintoma_declarado,
-      }),
+      prompt:
+        b.roteiro?.trim() ||
+        montarPrompt({
+          os: b.os_numero,
+          clienteNome: b.cliente_nome,
+          clienteEndereco: b.cliente_endereco,
+          produtoModelo: b.produto_modelo,
+          produtoLinha: b.produto_linha,
+          sintomaDeclarado: b.sintoma_declarado,
+        }),
       tools: TOOLS as any,
       // O tronco iFalei fica configurado no provedor; aqui só referenciamos.
       trunkId: process.env.SIP_TRUNK_ID!,
@@ -61,6 +65,7 @@ export async function rotasDisparo(app: FastifyInstance) {
         sintoma_declarado: b.sintoma_declarado,
         cadastro_nome_original: b.cliente_nome,
         cadastro_endereco_original: b.cliente_endereco,
+        roteiro_customizado: Boolean(b.roteiro?.trim()),
         status: 'discando',
         etapa: 'abertura',
       })
