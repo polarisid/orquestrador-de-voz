@@ -1,0 +1,16 @@
+# Versao para VPS: rede host. É o que faz o SIP funcionar sem dor de NAT.
+# NAO importe este arquivo no Coolify — ele nao sabe lidar com rede host + UDP.
+services:
+  asterisk:
+    image: andrius/asterisk:latest
+    container_name: asterisk-triagem
+    network_mode: host
+    volumes:
+      - ./conf:/etc/asterisk
+      - asterisk-logs:/var/log/asterisk
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  asterisk-logs:

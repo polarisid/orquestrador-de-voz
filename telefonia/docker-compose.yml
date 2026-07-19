@@ -1,0 +1,15 @@
+services:
+  asterisk:
+    image: andrius/asterisk:latest
+    container_name: asterisk-triagem
+    # network_mode host é o que evita 90% dos problemas de NAT com SIP.
+    # No Windows/Mac o Docker Desktop não suporta host mode — use as portas abaixo.
+    ports:
+      - "5060:5060/udp"
+      - "8088:8088/tcp"          # ARI / WebSocket
+      - "10000-10100:10000-10100/udp"  # RTP (áudio)
+    volumes:
+      - ./conf:/etc/asterisk
+    env_file:
+      - .env
+    restart: unless-stopped
