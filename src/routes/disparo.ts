@@ -15,6 +15,15 @@ interface DisparoBody {
 }
 
 export async function rotasDisparo(app: FastifyInstance) {
+  // Lista para o painel. Mais recentes primeiro.
+  app.get('/calls', async () => {
+    const { data } = await supabase.from('chamadas_triagem').select('*');
+    const linhas = (data ?? []) as any[];
+    return linhas
+      .sort((a, b) => (b.criada_em ?? '').localeCompare(a.criada_em ?? ''))
+      .slice(0, 40);
+  });
+
   app.post<{ Body: DisparoBody }>('/calls', async (req, reply) => {
     const b = req.body;
 

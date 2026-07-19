@@ -15,6 +15,7 @@ ENV NODE_ENV=production
 COPY package.json ./
 RUN npm install --omit=dev --omit=optional
 COPY --from=build /app/dist ./dist
+COPY public ./public
 
 # ./dados so e usado quando SUPABASE_URL esta vazio (store local).
 RUN mkdir -p /app/dados

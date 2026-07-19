@@ -1,5 +1,8 @@
 import './env.js';
 import Fastify from 'fastify';
+import fastifyStatic from '@fastify/static';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { rotasDisparo } from './routes/disparo.js';
 import { rotasTools } from './routes/tools.js';
 import { rotasEventos } from './routes/eventos.js';
@@ -14,6 +17,10 @@ app.addHook('preHandler', async (req, reply) => {
     return reply.code(401).send({ erro: 'assinatura inválida' });
   }
 });
+
+// Painel da mesa de triagem
+const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+await app.register(fastifyStatic, { root: resolve(raiz, 'public') });
 
 app.get('/health', async () => ({ ok: true }));
 

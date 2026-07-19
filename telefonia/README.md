@@ -54,3 +54,19 @@ Feche o softphone: um ramal aceita um registro por vez.
 Aí sim entra o áudio para o agente, via ExternalMedia do ARI: o Asterisk abre um
 socket RTP e manda o áudio bruto para o seu serviço, que faz STT, chama o Triagem
 AI e devolve o TTS. É o próximo passo — e é o mais trabalhoso do projeto inteiro.
+
+## Comandos de diagnóstico
+
+    # o que importa: o tronco registrou?
+    docker exec -it asterisk-triagem asterisk -rx "pjsip show registrations"
+
+    # o endpoint está alcançável?
+    docker exec -it asterisk-triagem asterisk -rx "pjsip show endpoints"
+
+    # ligação de teste
+    docker exec -it asterisk-triagem asterisk -rx \
+      "channel originate PJSIP/5579SEUNUMERO@ifalei application Playback demo-congrats"
+
+    # log SIP da tentativa, só as últimas linhas
+    docker exec -it asterisk-triagem asterisk -rx "pjsip set logger on"
+    docker logs --tail 100 -f asterisk-triagem

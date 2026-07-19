@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesa de triagem — Smart Center Aracaju</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --papel:#F1F4F3;
+  --carta:#FFFFFF;
+  --tinta:#131E1D;
+  --aco:#5C6E6C;
+  --linha:#D2DAD8;
+  --sinal:#0E6B60;
+  --sinal-claro:#E2F0ED;
+  --alerta:#A93D24;
+  --espera:#8A6A16;
+  --r:3px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--papel);
+  color:var(--tinta);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- cabecalho ---------- */
+header{
+  border-bottom:1px solid var(--linha);
+  background:var(--carta);
+  padding:14px 24px;
+  display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+}
+header h1{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:17px;font-weight:700;letter-spacing:-.01em;margin:0;
+}
+header .sub{color:var(--aco);font-size:13px}
+header .pulso{
+  margin-left:auto;display:flex;align-items:center;gap:7px;
+  font-size:12px;color:var(--aco);
+}
+.ponto{width:7px;height:7px;border-radius:50%;background:var(--sinal)}
+@media (prefers-reduced-motion:no-preference){
+  .ponto{animation:bate 2.4s ease-in-out infinite}
+}
+@keyframes bate{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ---------- grade ---------- */
+main{
+  display:grid;
+  grid-template-columns:minmax(320px,400px) 1fr;
+  gap:0;
+  align-items:start;
+}
+@media (max-width:880px){main{grid-template-columns:1fr}}
+
+.painel{padding:22px 24px}
+.painel + .painel{border-left:1px solid var(--linha)}
+@media (max-width:880px){.painel + .painel{border-left:0;border-top:1px solid var(--linha)}}
+
+h2{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--aco);margin:0 0 16px;
+}
+
+/* ---------- formulario ---------- */
+label{display:block;margin-bottom:13px}
+label span{
+  display:block;font-size:12px;font-weight:500;color:var(--aco);
+  margin-bottom:4px;letter-spacing:.01em;
+}
+input,select,textarea{
+  width:100%;padding:8px 10px;
+  border:1px solid var(--linha);border-radius:var(--r);
+  background:var(--carta);color:var(--tinta);
+  font-family:inherit;font-size:14px;
+}
+input.mono{font-family:'IBM Plex Mono',monospace}
+textarea{resize:vertical;min-height:58px}
+input:focus,select:focus,textarea:focus{
+  outline:2px solid var(--sinal);outline-offset:-1px;border-color:var(--sinal);
+}
+.dupla{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+button{
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;
+  letter-spacing:.01em;
+  padding:11px 16px;width:100%;
+  border:0;border-radius:var(--r);
+  background:var(--sinal);color:#fff;cursor:pointer;
+}
+button:hover{background:#0B5850}
+button:disabled{background:var(--aco);cursor:not-allowed}
+button:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
+
+.aviso{
+  margin-top:12px;padding:9px 11px;border-radius:var(--r);
+  font-size:13px;border:1px solid;
+}
+.aviso.ok{background:var(--sinal-claro);border-color:#B4D8D1;color:#0A5049}
+.aviso.erro{background:#FBEDE9;border-color:#EBC7BC;color:var(--alerta)}
+.aviso[hidden]{display:none}
+
+/* ---------- lista de chamadas ---------- */
+.vazio{
+  border:1px dashed var(--linha);border-radius:var(--r);
+  padding:34px 20px;text-align:center;color:var(--aco);font-size:14px;
+}
+.chamada{
+  background:var(--carta);
+  border:1px solid var(--linha);border-radius:var(--r);
+  padding:14px 16px;margin-bottom:10px;
+}
+.topo{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.os{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:15px}
+.nome{color:var(--aco);font-size:14px}
+.selo{
+  margin-left:auto;font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;padding:2px 7px;border-radius:2px;
+  border:1px solid currentColor;
+}
+.selo.ativa{color:var(--sinal)}
+.selo.feita{color:var(--aco)}
+.selo.falha{color:var(--alerta)}
+.selo.espera{color:var(--espera)}
+
+/* trilho de etapas — a sequencia da ligacao */
+.trilho{display:flex;gap:2px;margin:13px 0 9px}
+.etapa{flex:1;position:relative;padding-top:15px}
+.etapa::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--linha);
+}
+.etapa.passou::before{background:var(--sinal)}
+.etapa.agora::before{background:var(--sinal)}
+@media (prefers-reduced-motion:no-preference){
+  .etapa.agora::before{animation:bate 1.6s ease-in-out infinite}
+}
+.etapa em{
+  font-style:normal;font-size:10.5px;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--aco);
+}
+.etapa.passou em,.etapa.agora em{color:var(--tinta);font-weight:600}
+
+.dados{
+  font-size:13px;color:var(--aco);
+  display:flex;gap:14px;flex-wrap:wrap;
+}
+.dados b{font-weight:500;color:var(--tinta)}
+.corrigido{color:var(--espera);font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mesa de triagem</h1>
+  <span class="sub">Smart Center Aracaju &middot; ASC 0003198122</span>
+  <span class="pulso"><span class="ponto"></span><span id="pulso-txt">atualizando</span></span>
+</header>
+
+<main>
+  <section class="painel">
+    <h2>Nova chamada</h2>
+    <form id="form">
+      <label><span>Ordem de serviço</span>
+        <input class="mono" name="os_numero" required placeholder="4181234567"></label>
+
+      <label><span>Nome no cadastro</span>
+        <input name="cliente_nome" required placeholder="Maria da Silva"></label>
+
+      <label><span>Endereço no cadastro</span>
+        <textarea name="cliente_endereco" required placeholder="Rua, número, complemento, bairro, cidade"></textarea></label>
+
+      <label><span>Telefone com DDD</span>
+        <input class="mono" name="telefone" required inputmode="numeric"
+               pattern="[0-9]{10,11}" placeholder="79999998888"
+               title="Só dígitos, com DDD"></label>
+
+      <div class="dupla">
+        <label><span>Linha</span>
+          <select name="produto_linha" required>
+            <option value="RAC">Ar-condicionado</option>
+            <option value="REF">Refrigerador</option>
+            <option value="WSM">Lava-roupas</option>
+            <option value="TV">TV</option>
+            <option value="MWO">Micro-ondas</option>
+            <option value="OUTRO">Outro</option>
+          </select></label>
+        <label><span>Modelo</span>
+          <input class="mono" name="produto_modelo" required placeholder="AR12BVHZCWK"></label>
+      </div>
+
+      <label><span>Sintoma informado na abertura</span>
+        <textarea name="sintoma_declarado" required placeholder="não gela"></textarea></label>
+
+      <button type="submit" id="btn">Ligar para o cliente</button>
+      <p class="aviso" id="aviso" hidden></p>
+    </form>
+  </section>
+
+  <section class="painel">
+    <h2>Chamadas</h2>
+    <div id="lista"></div>
+  </section>
+</main>
+
+<script>
+const ETAPAS = [
+  { id:'abertura',    rot:'Abertura'  },
+  { id:'cadastro_ok', rot:'Cadastro'  },
+  { id:'sintoma_ok',  rot:'Sintoma'   },
+  { id:'doc_enviado', rot:'Documentos'},
+  { id:'fim',         rot:'Encerrada' },
+];
+
+const SELOS = {
+  discando:      ['ativa','discando'],
+  em_andamento:  ['ativa','na linha'],
+  concluida:     ['feita','concluída'],
+  parcial:       ['espera','parcial'],
+  transferida:   ['espera','transferida'],
+  reagendar:     ['espera','reagendar'],
+  sem_contato:   ['falha','sem contato'],
+  cliente_desligou:['falha','desligou'],
+  recusou_gravacao:['falha','recusou'],
+};
+
+const esc = s => String(s ?? '').replace(/[<>&"]/g, c =>
+  ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+function indiceEtapa(c){
+  if (['concluida','sem_contato','cliente_desligou','recusou_gravacao','transferida'].includes(c.status)) return 4;
+  return Math.max(0, ETAPAS.findIndex(e => e.id === c.etapa));
+}
+
+function cartao(c){
+  const i = indiceEtapa(c);
+  const encerrada = i === 4;
+  const [classe, texto] = SELOS[c.status] ?? ['espera', c.status ?? '—'];
+
+  const trilho = ETAPAS.map((e, n) => {
+    const cls = n < i ? 'passou' : (n === i && !encerrada ? 'agora' : (n === i ? 'passou' : ''));
+    return `<div class="etapa ${cls}"><em>${e.rot}</em></div>`;
+  }).join('');
+
+  const dados = [];
+  if (c.cadastro_nome) dados.push(`<span><b>${esc(c.cadastro_nome)}</b></span>`);
+  if (c.cadastro_corrigido) dados.push(`<span class="corrigido">cadastro corrigido</span>`);
+  if (c.restricao_horario) dados.push(`<span>horário: <b>${esc(c.restricao_horario)}</b></span>`);
+  if (c.codigo_erro) dados.push(`<span>erro <b class="mono">${esc(c.codigo_erro)}</b></span>`);
+  if (c.doc_canal) dados.push(`<span>docs por <b>${esc(c.doc_canal)}</b></span>`);
+  if (c.duracao_segundos) dados.push(`<span><b class="mono">${Math.floor(c.duracao_segundos/60)}m${String(c.duracao_segundos%60).padStart(2,'0')}s</b></span>`);
+
+  return `<article class="chamada">
+    <div class="topo">
+      <span class="os">${esc(c.os_numero)}</span>
+      <span class="nome">${esc(c.cadastro_nome_original ?? '')} &middot; ${esc(c.produto_modelo ?? '')}</span>
+      <span class="selo ${classe}">${esc(texto)}</span>
+    </div>
+    <div class="trilho">${trilho}</div>
+    ${c.sintoma_confirmado ? `<p class="dados" style="margin:0 0 7px"><span>${esc(c.sintoma_confirmado)}</span></p>` : ''}
+    ${dados.length ? `<div class="dados">${dados.join('')}</div>` : ''}
+  </article>`;
+}
+
+async function atualizar(){
+  try{
+    const r = await fetch('/calls');
+    const lista = await r.json();
+    document.getElementById('lista').innerHTML = lista.length
+      ? lista.map(cartao).join('')
+      : `<p class="vazio">Nenhuma chamada ainda. Preencha a OS ao lado para começar.</p>`;
+    document.getElementById('pulso-txt').textContent =
+      new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }catch{
+    document.getElementById('pulso-txt').textContent = 'sem conexão';
+  }
+}
+
+const aviso = (tipo, txt) => {
+  const el = document.getElementById('aviso');
+  el.className = 'aviso ' + tipo;
+  el.textContent = txt;
+  el.hidden = false;
+};
+
+document.getElementById('form').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const btn = document.getElementById('btn');
+  const dados = Object.fromEntries(new FormData(ev.target));
+  btn.disabled = true; btn.textContent = 'Discando…';
+  try{
+    const r = await fetch('/calls', {
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify(dados),
+    });
+    const corpo = await r.json();
+    if (r.status === 202) {
+      aviso('erro','Fora da janela de atendimento (8h às 20h, segunda a sábado). A chamada não foi disparada.');
+    } else if (!r.ok) {
+      aviso('erro','A chamada não saiu. Verifique o tronco e tente de novo.');
+    } else {
+      aviso('ok','Discando para o cliente. Acompanhe ao lado.');
+      ev.target.reset();
+    }
+  }catch{
+    aviso('erro','Sem resposta do servidor.');
+  }
+  btn.disabled = false; btn.textContent = 'Ligar para o cliente';
+  atualizar();
+});
+
+atualizar();
+setInterval(atualizar, 3000);
+</script>
+</body>
+</html>
