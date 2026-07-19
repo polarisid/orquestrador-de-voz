@@ -1,0 +1,295 @@
+/**
+ * Cria as 6 webhook tools e o agente de triagem na ElevenLabs.
+ *
+ *   node scripts/criar-agente-elevenlabs.mjs
+ *
+ * Precisa no .env:
+ *   ELEVENLABS_API_KEY
+ *   PUBLIC_URL          (URL pública do orquestrador — as tools batem aqui)
+ *   WEBHOOK_SECRET
+ *   ELEVENLABS_VOICE_ID (opcional; escolha uma voz pt-BR no painel deles)
+ *
+ * Ao final imprime o ELEVENLABS_AGENT_ID para você colar no .env.
+ * Rodar de novo cria tudo outra vez — não é idempotente.
+ */
+import { readFileSync, existsSync } from 'node:fs';
+
+if (existsSync('.env')) {
+  for (const l of readFileSync('.env', 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/)) {
+    const t = l.trim();
+    if (!t || t.startsWith('#')) continue;
+    const i = t.indexOf('=');
+    if (i > 0 && process.env[t.slice(0, i).trim()] === undefined)
+      process.env[t.slice(0, i).trim()] = t.slice(i + 1).trim().split(/\s+#/)[0].trim();
+  }
+}
+
+const KEY = process.env.ELEVENLABS_API_KEY;
+const PUBLIC_URL = process.env.PUBLIC_URL;
+const SEGREDO = process.env.WEBHOOK_SECRET;
+
+if (!KEY || !PUBLIC_URL || !SEGREDO) {
+  console.error('Faltam ELEVENLABS_API_KEY, PUBLIC_URL ou WEBHOOK_SECRET no .env');
+  process.exit(1);
+}
+if (PUBLIC_URL.includes('localhost')) {
+  console.error('PUBLIC_URL nao pode ser localhost — a ElevenLabs precisa alcancar suas tools.');
+  process.exit(1);
+}
+
+async function api(path, body, method = 'POST') {
+  const r = await fetch(`https://api.elevenlabs.io/v1${path}`, {
+    method,
+    headers: { 'content-type': 'application/json', 'xi-api-key': KEY },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`${path} -> ${r.status} ${txt}`);
+  return txt ? JSON.parse(txt) : {};
+}
+
+/** Campo string comum. */
+const S = (description, extra = {}) => ({ type: 'string', description, ...extra });
+
+/**
+ * Toda tool carrega conversation_id como variavel dinamica do sistema.
+ * E assim que o orquestrador sabe de qual chamada se trata.
+ */
+const idDaConversa = {
+  id: 'conversation_id',
+  type: 'string',
+  value_type: 'dynamic_variable',
+  dynamic_variable: 'system__conversation_id',
+  description: 'Identificador da conversa. Preenchido automaticamente.',
+  required: true,
+};
+
+function tool(nome, descricao, propriedades, obrigatorios) {
+  return {
+    tool_config: {
+      type: 'webhook',
+      name: nome,
+      description: descricao,
+      response_timeout_secs: 15,
+      api_schema: {
+        url: `${PUBLIC_URL}/webhooks/el/${nome}`,
+        method: 'POST',
+        request_headers: { 'x-signature': SEGREDO },
+        request_body_schema: {
+          type: 'object',
+          description: descricao,
+          properties: [idDaConversa, ...propriedades],
+          required: ['conversation_id', ...obrigatorios],
+        },
+      },
+    },
+  };
+}
+
+const TOOLS = [
+  tool(
+    'confirmar_cadastro',
+    'Registra nome e endereco confirmados ou corrigidos pelo cliente. Chame so depois que o cliente confirmar os dois verbalmente.',
+    [
+      { id: 'nome', ...S('Nome completo confirmado'), required: true },
+      { id: 'endereco', ...S('Logradouro, numero, complemento, bairro, cidade'), required: true },
+      { id: 'cep', ...S('CEP, se o cliente souber') },
+      { id: 'ponto_referencia', ...S('Referencia para o tecnico achar o local') },
+      { id: 'restricao_horario', ...S('Ex: so a tarde, nao pode segunda. Vazio se nenhuma.') },
+      {
+        id: 'houve_correcao',
+        type: 'boolean',
+        description: 'true se algum dado divergiu do cadastro original',
+        required: true,
+      },
+    ],
+    ['nome', 'endereco', 'houve_correcao'],
+  ),
+
+  tool(
+    'consultar_codigo_erro',
+    'Consulta a base tecnica Samsung quando o cliente cita um codigo de erro no painel. Devolve a explicacao em linguagem simples.',
+    [
+      { id: 'codigo', ...S('Codigo exibido no painel. Ex: E1, CH38, 5E'), required: true },
+      { id: 'linha', ...S('Linha do produto: RAC, REF, WSM, TV, MWO ou OUTRO') },
+      { id: 'modelo', ...S('Modelo, se diferente do cadastrado') },
+    ],
+    ['codigo'],
+  ),
+
+  tool(
+    'registrar_sintoma',
+    'Grava a triagem do sintoma e dispara a analise tecnica. Chame uma unica vez, ao final da investigacao.',
+    [
+      {
+        id: 'sintoma_confirmado',
+        ...S('Descricao tecnica do problema, em uma ou duas frases'),
+        required: true,
+      },
+      { id: 'inicio', ...S('Quando comecou. Ex: ha 3 dias, desde a instalacao') },
+      {
+        id: 'frequencia',
+        ...S('constante, intermitente ou nao_informado'),
+        required: true,
+      },
+      { id: 'codigo_erro', ...S('Codigo citado, se houver') },
+      {
+        id: 'fatores',
+        type: 'array',
+        description:
+          'Eventos relatados: queda de energia, mudanca de local, instalacao recente, infiltracao',
+        items: { type: 'string' },
+      },
+      {
+        id: 'divergiu_da_abertura',
+        type: 'boolean',
+        description: 'true se o sintoma real difere do informado na abertura da OS',
+        required: true,
+      },
+    ],
+    ['sintoma_confirmado', 'frequencia', 'divergiu_da_abertura'],
+  ),
+
+  tool(
+    'enviar_link_documentos',
+    'Envia por WhatsApp ou SMS o link de upload da nota fiscal e da foto da etiqueta do produto.',
+    [
+      { id: 'canal', ...S('whatsapp ou sms'), required: true },
+      { id: 'telefone', ...S('Somente digitos, com DDD. Ex: 79999998888'), required: true },
+    ],
+    ['canal', 'telefone'],
+  ),
+
+  tool(
+    'transferir_humano',
+    'Registra que a ligacao precisa de atendente humano. Use quando o cliente pedir, demonstrar irritacao, ou apos duas falhas seguidas de entendimento.',
+    [
+      {
+        id: 'motivo',
+        ...S('pedido_do_cliente, insatisfacao, falha_entendimento ou fora_do_escopo'),
+        required: true,
+      },
+    ],
+    ['motivo'],
+  ),
+
+  tool(
+    'encerrar_triagem',
+    'Finaliza a triagem registrando o desfecho. Chame antes de se despedir.',
+    [
+      {
+        id: 'status',
+        ...S('concluida, parcial, recusou_gravacao, cliente_desligou ou nao_e_o_titular'),
+        required: true,
+      },
+      { id: 'observacao', ...S('Qualquer coisa relevante que nao coube nos outros campos') },
+    ],
+    ['status'],
+  ),
+];
+
+/**
+ * Prompt do agente. Usa variaveis dinamicas {{...}} — a ElevenLabs substitui
+ * pelos valores que o orquestrador manda em dynamic_variables no disparo.
+ */
+const PROMPT = `Voce e o assistente de triagem tecnica da Smart Center Aracaju, assistencia tecnica autorizada Samsung. Voce esta LIGANDO para o cliente sobre uma ordem de servico ja aberta.
+
+# Como voce fala
+Frases curtas, tom cordial e objetivo, portugues brasileiro falado. Uma pergunta por vez — nunca encadeie duas.
+Nunca leia listas nem enumere opcoes longas em voz alta.
+Se o cliente falar por cima de voce, pare e escute.
+Se nao entender, peca para repetir. Na segunda falha seguida, chame transferir_humano.
+
+# Dados da OS
+Ordem de servico: {{os_numero}}
+Nome no cadastro: {{cliente_nome}}
+Endereco no cadastro: {{cliente_endereco}}
+Produto: {{produto_linha}} {{produto_modelo}}
+Sintoma informado na abertura: {{sintoma_declarado}}
+
+# Roteiro — siga nesta ordem
+
+## 1. Abertura e aviso
+Identifique-se, diga o nome da empresa e o numero da OS, e avise que a ligacao e gravada para registro do atendimento. Pergunte se pode continuar.
+Se o cliente recusar, chame encerrar_triagem com status recusou_gravacao e se despeca.
+Se quem atendeu nao for o titular, pergunte se pode falar com ele. Se nao puder, encerre com status nao_e_o_titular.
+
+## 2. Confirmacao de cadastro
+Confirme o nome. Depois, em fala separada, leia o endereco do cadastro e pergunte se esta correto.
+Se houver correcao, repita o dado corrigido de volta antes de registrar.
+Pergunte tambem ponto de referencia e se ha restricao de horario para a visita.
+Com nome e endereco confirmados, chame confirmar_cadastro.
+
+## 3. Confirmacao do sintoma
+Diga o sintoma registrado e pergunte se e isso mesmo.
+Investigue com perguntas simples, uma de cada vez: quando comecou, se e constante ou intermitente, se aparece codigo ou luz piscando no painel, se houve queda de energia, mudanca de lugar ou instalacao recente.
+Se o cliente citar um codigo de erro, chame consultar_codigo_erro antes de seguir.
+Nao de diagnostico fechado nem estimativa de preco. Se perguntarem, diga que o tecnico avalia no local.
+Com o quadro montado, chame registrar_sintoma.
+
+## 4. Documentacao
+Explique que para atendimento em garantia sao necessarias a nota fiscal de compra e uma foto da etiqueta de identificacao do produto, aquela com o numero de serie.
+Pergunte se prefere receber o link por WhatsApp ou SMS. Confirme o numero antes de enviar.
+Chame enviar_link_documentos. Diga que o envio da documentacao e o que libera o agendamento da visita.
+
+## 5. Encerramento
+Resuma em uma frase o que foi registrado, informe que a visita e agendada apos o recebimento dos documentos, agradeca e chame encerrar_triagem.
+
+# Limites
+Nunca prometa data, horario ou valor.
+Nunca afirme que o reparo e coberto pela garantia — depende da nota fiscal e da avaliacao tecnica.
+Se o cliente pedir para falar com uma pessoa, ou demonstrar irritacao, chame transferir_humano imediatamente, sem argumentar.`;
+
+const PRIMEIRA_FALA =
+  'Ola, bom dia! Aqui e o assistente da Smart Center Aracaju, assistencia autorizada Samsung. Estou ligando sobre a ordem de servico {{os_numero}}. Esta ligacao e gravada para registro do atendimento. Posso continuar?';
+
+// ---------------------------------------------------------------------------
+
+console.log('Criando as tools...');
+const ids = [];
+for (const t of TOOLS) {
+  const r = await api('/convai/tools', t);
+  const id = r.id ?? r.tool_id;
+  ids.push(id);
+  console.log(`  ${t.tool_config.name} -> ${id}`);
+}
+
+console.log('\nCriando o agente...');
+const agente = await api('/convai/agents/create', {
+  name: 'Triagem Smart Center Aracaju',
+  conversation_config: {
+    agent: {
+      language: 'pt',
+      prompt: {
+        prompt: PROMPT,
+        llm: 'gemini-2.0-flash',
+        temperature: 0.3,
+        tool_ids: ids,
+      },
+      first_message: PRIMEIRA_FALA,
+    },
+    tts: {
+      ...(process.env.ELEVENLABS_VOICE_ID ? { voice_id: process.env.ELEVENLABS_VOICE_ID } : {}),
+      model_id: 'eleven_flash_v2_5',
+    },
+    turn: { turn_timeout: 8 },
+    asr: { language: 'pt' },
+  },
+  platform_settings: {
+    overrides: {
+      // Permite o painel sobrescrever o roteiro por chamada.
+      conversation_config_override: {
+        agent: { prompt: { prompt: true }, first_message: true },
+      },
+    },
+  },
+});
+
+const agentId = agente.agent_id ?? agente.id;
+
+console.log(`\n=== PRONTO ===`);
+console.log(`Cole no .env (e nas variaveis do Coolify):\n`);
+console.log(`ELEVENLABS_AGENT_ID=${agentId}`);
+console.log(`\nFalta importar o numero SIP no painel da ElevenLabs`);
+console.log(`(Phone Numbers > Import a phone number from SIP trunk)`);
+console.log(`e colar o id em ELEVENLABS_PHONE_NUMBER_ID.`);

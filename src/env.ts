@@ -23,6 +23,8 @@ if (existsSync(arquivo)) {
 
     const chave = l.slice(0, i).trim();
     let valor = l.slice(i + 1).trim();
+    // comentário no fim da linha, quando o valor não está entre aspas
+    if (!/^["']/.test(valor)) valor = valor.split(/\s+#/)[0].trim();
     if (
       (valor.startsWith('"') && valor.endsWith('"')) ||
       (valor.startsWith("'") && valor.endsWith("'"))

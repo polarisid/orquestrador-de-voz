@@ -59,3 +59,37 @@ dtmf_mode=rfc4733
 type=identify
 endpoint=ifalei
 match=${IFALEI_SERVIDOR}
+
+; ============================================================
+; PONTE PARA A ELEVENLABS
+; Ela manda o INVITE para o SEU servidor; o Asterisk repassa
+; pelo tronco iFalei. Autenticacao digest — credenciais SUAS,
+; cadastradas no painel deles ao importar o numero SIP.
+; ============================================================
+
+[elevenlabs-auth]
+type=auth
+auth_type=userpass
+username=${EL_SIP_USUARIO}
+password=${EL_SIP_SENHA}
+
+[elevenlabs]
+type=aor
+max_contacts=4
+remove_existing=yes
+
+[elevenlabs]
+type=endpoint
+transport=transport-udp
+context=da-elevenlabs
+disallow=all
+allow=ulaw
+allow=alaw
+aors=elevenlabs
+auth=elevenlabs-auth
+direct_media=no
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes
+dtmf_mode=rfc4733
+; A ElevenLabs prefere PCM; ulaw primeiro evita transcodificacao.

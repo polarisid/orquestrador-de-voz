@@ -4,7 +4,8 @@
 create table if not exists chamadas_triagem (
   id uuid primary key default gen_random_uuid(),
   os_numero text not null,
-  provider_call_id text unique,
+  provider_call_id text unique,   -- conversation_id da ElevenLabs
+  sip_call_id text,
   telefone text not null,
 
   produto_modelo text,
@@ -47,6 +48,7 @@ create table if not exists chamadas_triagem (
   duracao_segundos int,
   gravacao_url text,
   transcricao jsonb,
+  resumo text,
 
   criada_em timestamptz default now(),
   atendida_em timestamptz,

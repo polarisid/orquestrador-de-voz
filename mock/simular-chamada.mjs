@@ -11,7 +11,7 @@ if (existsSync('.env')) {
     if (!t || t.startsWith('#')) continue;
     const i = t.indexOf('=');
     if (i > 0 && process.env[t.slice(0, i).trim()] === undefined)
-      process.env[t.slice(0, i).trim()] = t.slice(i + 1).trim();
+      process.env[t.slice(0, i).trim()] = t.slice(i + 1).trim().split(/\s+#/)[0].trim();
   }
 }
 
@@ -47,10 +47,9 @@ if (!provider_call_id) {
   process.exit(1);
 }
 
+// Formato ElevenLabs: uma URL por tool, argumentos na raiz do corpo.
 const tool = (name, args) =>
-  post('/webhooks/tool-call', { call_id: provider_call_id, name, args }, true);
-
-await post('/webhooks/call-event', { call_id: provider_call_id, event: 'call_answered' }, true);
+  post(`/webhooks/el/${name}`, { conversation_id: provider_call_id, ...args }, true);
 
 await tool('confirmar_cadastro', {
   nome: 'Maria da Silva Santos',
@@ -76,12 +75,15 @@ await tool('enviar_link_documentos', { canal: 'sms', telefone: '79999998888' });
 
 await tool('encerrar_triagem', { status: 'concluida', observacao: 'cliente colaborativo' });
 
-await post('/webhooks/call-event', {
-  call_id: provider_call_id,
-  event: 'call_ended',
-  duration_seconds: 214,
-  recording_url: 'https://exemplo/gravacao.mp3',
-  transcript: [{ role: 'agent', text: 'Bom dia...', ts: 0 }],
+await post('/webhooks/elevenlabs', {
+  type: 'post_call_transcription',
+  data: {
+    conversation_id: provider_call_id,
+    status: 'done',
+    transcript: [{ role: 'agent', message: 'Ola, bom dia...', time_in_call_secs: 0 }],
+    metadata: { call_duration_secs: 214, termination_reason: 'end_call_tool' },
+    analysis: { transcript_summary: 'Cadastro corrigido, sintoma confirmado, documentos enviados.' },
+  },
 }, true);
 
 console.log('\nfluxo completo. rode: npm run ver');

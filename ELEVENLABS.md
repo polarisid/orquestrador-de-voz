@@ -1,0 +1,138 @@
+# ElevenLabs Agents + iFalei
+
+Topologia:
+
+    Painel  ──POST /calls──►  Orquestrador
+                                  │
+                                  ├─ POST /v1/convai/sip-trunk/outbound-call
+                                  ▼
+                             ElevenLabs Agents
+                                  │ INVITE (digest auth)
+                                  ▼
+                          SEU Asterisk (VPS)
+                                  │ Dial pelo tronco já registrado
+                                  ▼
+                               iFalei ──► celular do cliente
+
+    Durante a conversa:
+    ElevenLabs ──POST /webhooks/el/<tool>──► Orquestrador ──► Triagem AI
+    Ao encerrar:
+    ElevenLabs ──POST /webhooks/elevenlabs──► Orquestrador
+
+Por que o Asterisk no meio: a ElevenLabs manda INVITE de um IP dela, sem
+registro. PABX brasileiro costuma recusar isso. Com o Asterisk, ela autentica
+contra o SEU servidor e o tronco iFalei — que já está `Registered` e disca —
+continua funcionando como está.
+
+---
+
+## 1. Asterisk: aceitar a ElevenLabs
+
+No servidor:
+
+    cd /opt/triagem && git pull
+    cd telefonia && nano .env
+
+Adicione:
+
+    EL_SIP_USUARIO=elevenlabs
+    EL_SIP_SENHA=<invente uma senha longa e aleatória>
+    CALLER_ID_SAIDA=<seu DID iFalei, só dígitos>
+
+Regenere e reinicie:
+
+    bash gerar-config.sh
+    docker restart asterisk-triagem
+    docker exec -it asterisk-triagem asterisk -rx "pjsip show endpoints"
+
+Devem aparecer `ifalei` e `elevenlabs`.
+
+**Firewall.** O `provisionar-vps.sh` liberou a 5060 só para o IP da iFalei. A
+ElevenLabs vem de outros IPs. Pegue a faixa atual na documentação deles
+(SIP trunking) e libere:
+
+    ufw allow from <IP_DA_ELEVENLABS> to any port 5060 proto udp
+    ufw allow from <IP_DA_ELEVENLABS> to any port 10000:10200 proto udp
+
+Não abra a 5060 para o mundo. É convite para fraude de tarifação.
+
+## 2. ElevenLabs: importar o número SIP
+
+Painel > Agents > Phone Numbers > **Import a phone number from SIP trunk**.
+
+| Campo | Valor |
+|---|---|
+| Address | `31.97.86.62` (o IP da sua VPS, sem `sip:`) |
+| Transport | UDP |
+| Authentication | Digest |
+| Username | o `EL_SIP_USUARIO` |
+| Password | o `EL_SIP_SENHA` |
+| Phone number | o seu DID iFalei em E.164, ex. `+557933000000` |
+
+Copie o **id do número** que aparece depois de salvar — é o
+`ELEVENLABS_PHONE_NUMBER_ID`.
+
+## 3. Criar o agente e as tools
+
+Local, com o `.env` preenchido (`ELEVENLABS_API_KEY`, `PUBLIC_URL` público,
+`WEBHOOK_SECRET`):
+
+    npm run criar-agente
+
+O script cria as 6 webhook tools apontando para o seu `PUBLIC_URL` e o agente
+com o roteiro de 5 etapas. Ao final imprime o `ELEVENLABS_AGENT_ID`.
+
+Escolha antes uma voz pt-BR no painel e ponha o id em `ELEVENLABS_VOICE_ID` —
+sem isso ele usa a voz padrão, que soa estrangeira.
+
+## 4. Variáveis no Coolify
+
+    ELEVENLABS_API_KEY=...
+    ELEVENLABS_AGENT_ID=...
+    ELEVENLABS_PHONE_NUMBER_ID=...
+    ELEVENLABS_VOICE_ID=...
+
+E **apague** `ELEVENLABS_API_URL` se existir — ela só serve para apontar ao mock.
+
+## 5. Webhook pós-chamada
+
+Painel da ElevenLabs > Workspace > Webhooks. Aponte para:
+
+    https://<seu-dominio>/webhooks/elevenlabs
+
+Evento: `post_call_transcription`. É o que preenche transcrição, duração e
+resumo no painel.
+
+## 6. Primeira ligação real
+
+Ligue para o seu próprio celular pelo painel. O que observar, em ordem:
+
+1. **O telefone toca** — a cadeia ElevenLabs → Asterisk → iFalei fechou
+2. **A voz soa natural em pt-BR** — se soar estrangeira, é o `voice_id`
+3. **Latência entre você falar e ele responder** — acima de 1,5s a conversa
+   fica constrangedora
+4. **As etapas acendem no painel** — as tools estão chegando
+5. **O resumo aparece no cartão ao final** — o webhook está configurado
+
+---
+
+## Diferenças em relação a um provedor genérico
+
+O agente é criado **uma vez**. Cada chamada só manda variáveis dinâmicas
+(`{{os_numero}}`, `{{cliente_nome}}`...). Isso é melhor: o roteiro fica
+versionado num lugar só.
+
+A aba Roteiro do painel continua funcionando via override de prompt por
+conversa — o script já habilita isso em `platform_settings.overrides`.
+
+`transferir_humano` e `encerrar_triagem` só registram no banco. Quem executa é
+o agente: o encerramento é a tool nativa `end_call` dele, e a transferência
+precisa de uma **transfer rule** configurada no agente apontando para o ramal.
+Configure no painel antes de usar em produção.
+
+## Custo
+
+Cobram por minuto de conversa, e a iFalei cobra o minuto de terminação. Some os
+dois e multiplique pelo seu volume mensal de OS antes de escalar. Se não fechar,
+o caminho alternativo é gravação + transcrição assíncrona, sem conversa em tempo
+real.

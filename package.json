@@ -8,6 +8,7 @@
     "mock:triagem": "node mock/triagem-falso.mjs",
     "simular": "node mock/simular-chamada.mjs",
     "ver": "node mock/ver-dados.mjs",
+    "criar-agente": "node scripts/criar-agente-elevenlabs.mjs",
     "build": "tsc",
     "start": "node dist/index.js"
   },

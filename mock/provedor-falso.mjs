@@ -17,17 +17,24 @@ createServer(async (req, res) => {
 
   res.setHeader('content-type', 'application/json');
 
-  if (url === '/calls' && req.method === 'POST') {
-    const id = `mock_${Date.now()}`;
+  if (url === '/convai/sip-trunk/outbound-call' && req.method === 'POST') {
+    const id = `conv_${Date.now()}`;
     chamadas.set(id, json);
+    const ini = json.conversation_initiation_client_data ?? {};
     console.log('\n=== CHAMADA ORIGINADA ===');
-    console.log('para:', json.to, '| de:', json.from, '| tronco:', json.sip_trunk_id);
-    console.log('tools:', json.agent.tools.map((t) => t.name).join(', '));
-    console.log('\n--- PROMPT ENVIADO AO AGENTE ---\n');
-    console.log(json.agent.system_prompt);
-    console.log('\n--- fim do prompt ---');
-    console.log(`\nid da chamada: ${id}\n`);
-    res.end(JSON.stringify({ id }));
+    console.log('para:', json.to_number);
+    console.log('agente:', json.agent_id, '| numero:', json.agent_phone_number_id);
+    console.log('\n--- VARIAVEIS DINAMICAS ---');
+    console.log(JSON.stringify(ini.dynamic_variables ?? {}, null, 2));
+    const ov = ini.conversation_config_override?.agent?.prompt?.prompt;
+    if (ov) {
+      console.log('\n--- ROTEIRO SOBRESCRITO PELO PAINEL ---\n');
+      console.log(ov);
+    } else {
+      console.log('\n(sem override — o agente usa o prompt padrao dele)');
+    }
+    console.log(`\nconversation_id: ${id}\n`);
+    res.end(JSON.stringify({ success: true, conversation_id: id, sip_call_id: 'sip_' + id }));
     return;
   }
 

@@ -1,60 +1,90 @@
 /**
- * Adapter do provedor de voz. Trocar de LiveKit/Vapi/Retell = mexer só aqui.
- * O tronco SIP da iFalei é cadastrado no painel do provedor; este código
- * apenas referencia o trunkId.
+ * Adapter da ElevenLabs Agents.
+ *
+ * Diferença estrutural em relação a um provedor genérico: o agente é criado
+ * UMA VEZ (prompt, voz, tools) e cada chamada só passa variáveis dinâmicas
+ * e, opcionalmente, um override de prompt. Por isso não mandamos as tools
+ * aqui — elas ficam registradas no agente.
+ *
+ * Criação do agente: scripts/criar-agente-elevenlabs.mjs
  */
-const BASE = process.env.VOICE_API_URL!;
-const KEY = process.env.VOICE_API_KEY!;
+// ELEVENLABS_API_URL só é usado nos testes locais, apontando para o mock.
+const BASE = () => process.env.ELEVENLABS_API_URL ?? 'https://api.elevenlabs.io/v1';
+const KEY = () => process.env.ELEVENLABS_API_KEY!;
 
-async function call(path: string, body?: unknown, method = 'POST') {
-  const r = await fetch(`${BASE}${path}`, {
+async function api(path: string, body?: unknown, method = 'POST') {
+  const r = await fetch(`${BASE()}${path}`, {
     method,
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${KEY}`,
-    },
+    headers: { 'content-type': 'application/json', 'xi-api-key': KEY() },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!r.ok) throw new Error(`voice-provider ${path}: ${r.status} ${await r.text()}`);
-  return r.json();
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`elevenlabs ${path}: ${r.status} ${txt}`);
+  return txt ? JSON.parse(txt) : {};
+}
+
+export interface DadosChamada {
+  os: string;
+  clienteNome: string;
+  clienteEndereco: string;
+  produtoModelo: string;
+  produtoLinha: string;
+  sintomaDeclarado: string;
 }
 
 export const voz = {
-  originar(p: {
+  /**
+   * Dispara a ligação. Retorna { id } = conversation_id da ElevenLabs, que é
+   * o identificador que volta em toda tool call e no webhook de encerramento.
+   */
+  async originar(p: {
     destino: string;
-    prompt: string;
-    tools: unknown[];
-    trunkId: string;
-    callerId: string;
-    metadata?: Record<string, unknown>;
-  }): Promise<{ id: string }> {
-    return call('/calls', {
-      to: p.destino,
-      from: p.callerId,
-      sip_trunk_id: p.trunkId,
-      agent: {
-        system_prompt: p.prompt,
-        tools: p.tools,
-        tool_webhook_url: `${process.env.PUBLIC_URL}/webhooks/tool-call`,
-        language: 'pt-BR',
-        // Latência: prefira região BR. Cada 100ms conta na percepção do cliente.
-        region: 'sa-east-1',
-        stt: { model: 'nova-3', language: 'pt-BR', endpointing_ms: 350 },
-        tts: { voice: process.env.TTS_VOICE, speed: 1.0 },
-        interruption_enabled: true,
-        max_duration_seconds: 600,
-        voicemail_detection: true,
+    prompt?: string;
+    primeiraFala?: string;
+    dados: DadosChamada;
+  }): Promise<{ id: string; sipCallId?: string }> {
+    const overrides: Record<string, any> = {};
+    if (p.prompt) overrides.prompt = { prompt: p.prompt };
+    if (p.primeiraFala) overrides.first_message = p.primeiraFala;
+
+    const r = await api('/convai/sip-trunk/outbound-call', {
+      agent_id: process.env.ELEVENLABS_AGENT_ID,
+      agent_phone_number_id: process.env.ELEVENLABS_PHONE_NUMBER_ID,
+      to_number: p.destino, // E.164, ex: +5579999998888
+      conversation_initiation_client_data: {
+        // Ficam disponíveis no prompt como {{os_numero}}, {{cliente_nome}}, etc.
+        dynamic_variables: {
+          os_numero: p.dados.os,
+          cliente_nome: p.dados.clienteNome,
+          cliente_endereco: p.dados.clienteEndereco,
+          produto_modelo: p.dados.produtoModelo,
+          produto_linha: p.dados.produtoLinha,
+          sintoma_declarado: p.dados.sintomaDeclarado,
+        },
+        ...(Object.keys(overrides).length
+          ? { conversation_config_override: { agent: overrides } }
+          : {}),
       },
-      webhook_url: `${process.env.PUBLIC_URL}/webhooks/call-event`,
-      metadata: p.metadata,
     });
+
+    if (!r.success) throw new Error(`elevenlabs recusou a chamada: ${r.message}`);
+    return { id: r.conversation_id, sipCallId: r.sip_call_id };
   },
 
-  transferir(callId: string, ramal: string) {
-    return call(`/calls/${callId}/transfer`, { to: ramal });
+  /**
+   * Transferência: na ElevenLabs isso é uma transfer rule configurada no
+   * próprio agente (transfer_to_number), não uma chamada de API.
+   * A tool aqui só registra a intenção; quem executa é o agente.
+   */
+  async transferir(_conversationId: string, _destino: string) {
+    return;
   },
 
-  encerrar(callId: string) {
-    return call(`/calls/${callId}/end`, {});
+  /**
+   * Encerramento idem: o agente encerra sozinho ao chamar end_call.
+   * Mantido para a interface continuar igual.
+   */
+  async encerrar(_conversationId: string) {
+    return;
   },
 };
