@@ -24,8 +24,8 @@ ufw allow 22/tcp
 ufw allow from "$IP_IFALEI" to any port 5060 proto udp
 
 # Perna ElevenLabs: IPs dinamicos, nao da para restringir.
-# TCP em porta alta reduz muito a varredura automatizada.
-ufw allow 5062/tcp
+# TCP na 5060 — a ElevenLabs manda o INVITE sem porta na URI.
+ufw allow 5060/tcp
 
 # RTP: a doc da ElevenLabs diz que o midia vem de IPs dinamicos.
 # Abrir a faixa e aceitavel — sem sinalizacao valida nao ha fraude de tarifacao.

@@ -22,10 +22,13 @@ bind=0.0.0.0
 ; para a internet. Deixa-la longe da 5060/UDP tira voce do radar dos
 ; scanners SIP, que varrem 5060 o dia inteiro procurando ramal fraco.
 ; A doc deles tambem recomenda TCP ou TLS; UDP e experimental.
+; A ElevenLabs manda o INVITE sem porta na URI, ou seja, para a 5060.
+; TCP na 5060 nao conflita com a iFalei, que usa 5060/UDP — sao sockets
+; diferentes.
 [transport-el]
 type=transport
 protocol=tcp
-bind=0.0.0.0:5062
+bind=0.0.0.0:5060
 
 ; ---------- registro no servidor da iFalei ----------
 [ifalei-reg]
