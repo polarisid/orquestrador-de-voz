@@ -86,23 +86,33 @@ auth_type=userpass
 username=${EL_SIP_USUARIO}
 password=${EL_SIP_SENHA}
 
-[elevenlabs]
+; O nome do endpoint TEM que ser igual ao usuario que a ElevenLabs poe no
+; campo From — que e o seu DID, nao o usuario de autenticacao. Sem isso o
+; Asterisk nao identifica a origem, trata como anonimo e devolve 401 em loop.
+[${EL_FROM_USER}]
 type=aor
 max_contacts=4
 remove_existing=yes
 
-[elevenlabs]
+[${EL_FROM_USER}]
 type=endpoint
 transport=transport-el
 context=da-elevenlabs
 disallow=all
 allow=ulaw
 allow=alaw
-aors=elevenlabs
+aors=${EL_FROM_USER}
 auth=elevenlabs-auth
 direct_media=no
 rtp_symmetric=yes
 force_rport=yes
 rewrite_contact=yes
 dtmf_mode=rfc4733
-; A ElevenLabs prefere PCM; ulaw primeiro evita transcodificacao.
+
+; Caminho alternativo: identificacao por IP. Os IPs da ElevenLabs variam,
+; entao isto e um complemento, nao a defesa principal. Preencha
+; EL_IPS no .env separado por virgula se quiser usar.
+; [${EL_FROM_USER}]
+; type=identify
+; endpoint=${EL_FROM_USER}
+; match=35.224.94.240

@@ -12,12 +12,13 @@ set -a; . ./.env; set +a
 : "${ARI_SENHA:?defina ARI_SENHA no .env}"
 : "${EL_SIP_USUARIO:=elevenlabs}"
 : "${EL_SIP_SENHA:?defina EL_SIP_SENHA no .env}"
-export EL_SIP_USUARIO EL_SIP_SENHA
+: "${EL_FROM_USER:?defina EL_FROM_USER no .env — o DID como a ElevenLabs manda no From, com o +}"
+export EL_SIP_USUARIO EL_SIP_SENHA EL_FROM_USER
 export IFALEI_SERVIDOR="${IFALEI_SERVIDOR:-sip.ifalei.com.br}"
 
 command -v envsubst >/dev/null || apt-get install -y -qq gettext-base
 
-VARS='${IFALEI_USUARIO} ${IFALEI_SENHA} ${IFALEI_SERVIDOR} ${ARI_SENHA} ${EL_SIP_USUARIO} ${EL_SIP_SENHA}'
+VARS='${IFALEI_USUARIO} ${IFALEI_SENHA} ${IFALEI_SERVIDOR} ${ARI_SENHA} ${EL_SIP_USUARIO} ${EL_SIP_SENHA} ${EL_FROM_USER}'
 
 for t in conf/*.template; do
   destino="${t%.template}"
@@ -28,4 +29,4 @@ done
 
 echo
 echo "--- conferencia ---"
-grep -E "^username=|^password=|^client_uri=|^server_uri=" conf/pjsip.conf
+grep -E "^username=|^password=|^client_uri=|^server_uri=|^\[" conf/pjsip.conf
