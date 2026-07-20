@@ -19,11 +19,20 @@ export async function executarTool(
 ): Promise<{ fala: string } | null> {
   const { data: chamada } = await supabase
     .from('chamadas_triagem')
-    .select('id, os_numero, produto_modelo, produto_linha')
+    .select('id, os_numero, produto_modelo, produto_linha, status')
     .eq('provider_call_id', providerCallId)
     .single();
 
   if (!chamada) return null;
+
+  // A ElevenLabs nao manda evento de atendimento. A primeira tool call e a
+  // prova de que o cliente atendeu e a conversa comecou.
+  if (chamada.status === 'discando') {
+    await supabase
+      .from('chamadas_triagem')
+      .update({ status: 'em_andamento', atendida_em: new Date().toISOString() })
+      .eq('id', chamada.id);
+  }
 
   switch (name) {
     case 'confirmar_cadastro': {

@@ -169,6 +169,14 @@ button:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
 .detalhe[hidden]{display:none}
 .carregando{font-size:13px;color:var(--aco)}
 
+.aovivo{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--sinal);font-weight:600;
+}
+.aovivo .ponto{width:6px;height:6px}
+.fala.parcial .txt{opacity:.6;font-style:italic}
+
 .resumo{
   font-size:13.5px;line-height:1.55;margin:0 0 13px;
   padding:10px 12px;background:var(--sinal-claro);border-radius:var(--r);
@@ -439,10 +447,14 @@ montarRoteiro();
 /* ---------- transcrição e áudio ---------- */
 const mmss = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 
+/** Cartões já renderizados em estado final — não precisam mais de fetch. */
+const prontos = new Set();
+
 async function abrirDetalhe(el, id, silencioso){
   const alvo = el.querySelector('.detalhe');
   alvo.hidden = false;
   el.setAttribute('aria-expanded','true');
+  if (prontos.has(id) && alvo.innerHTML.trim()) return;   // não re-renderiza: mataria o player
   if (!silencioso) alvo.innerHTML = `<p class="carregando">Buscando a conversa…</p>`;
 
   try{
@@ -450,21 +462,38 @@ async function abrirDetalhe(el, id, silencioso){
     if (!r.ok) throw new Error();
     const d = await r.json();
     const falas = d.transcricao ?? [];
+    const viva = !d.encerrada;
+
+    if (!viva) prontos.add(id);
+
+    // Preserva a rolagem do diálogo entre atualizações ao vivo.
+    const anterior = alvo.querySelector('.dialogo');
+    const noFim = !anterior || anterior.scrollTop + anterior.clientHeight >= anterior.scrollHeight - 24;
 
     alvo.innerHTML = `
       ${d.resumo ? `<p class="resumo">${esc(d.resumo)}</p>` : ''}
-      <p class="rotulo">Gravação</p>
-      <audio controls preload="none" src="/calls/${id}/audio"></audio>
-      <p class="rotulo">Conversa${d.duracao_segundos ? ` &middot; ${mmss(d.duracao_segundos)}` : ''}</p>
+      ${viva ? '' : `
+        <p class="rotulo">Gravação</p>
+        <audio controls preload="none" src="/calls/${id}/audio"></audio>`}
+      <p class="rotulo">
+        ${viva
+          ? `<span class="aovivo"><span class="ponto"></span>ao vivo</span>`
+          : `Conversa${d.duracao_segundos ? ` &middot; ${mmss(d.duracao_segundos)}` : ''}`}
+      </p>
       ${falas.length ? `<div class="dialogo">${falas.map(f => `
         <div class="fala ${f.quem}">
           <span class="t">${mmss(f.segundo)}</span>
           <span class="txt">${esc(f.texto)}</span>
         </div>`).join('')}</div>`
-        : `<p class="carregando">Sem transcrição para esta chamada.</p>`}
+        : `<p class="carregando">${viva
+            ? 'A conversa aparece aqui conforme a ElevenLabs libera os trechos. A gravação fica disponível quando a ligação terminar.'
+            : 'Sem transcrição para esta chamada.'}</p>`}
     `;
+
+    const dialogo = alvo.querySelector('.dialogo');
+    if (dialogo && noFim) dialogo.scrollTop = dialogo.scrollHeight;
   }catch{
-    alvo.innerHTML = `<p class="carregando">Não consegui buscar a conversa agora. A gravação pode levar alguns segundos para ficar pronta depois que a ligação termina.</p>`;
+    alvo.innerHTML = `<p class="carregando">Não consegui buscar a conversa agora.</p>`;
   }
 }
 
@@ -475,6 +504,7 @@ document.getElementById('lista').addEventListener('click', ev => {
   const id = el.dataset.id;
   if (abertos.has(id)) {
     abertos.delete(id);
+    prontos.delete(id);
     el.querySelector('.detalhe').hidden = true;
     el.setAttribute('aria-expanded','false');
   } else {

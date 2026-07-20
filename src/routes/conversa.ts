@@ -11,6 +11,12 @@ import { normalizar } from '../services/transcricao.js';
  * A transcrição é gravada no banco na primeira leitura, então a segunda
  * abertura do mesmo cartão não custa nada.
  */
+/** Status em que a chamada acabou de vez — só aí o cache vale. */
+const ENCERRADOS = [
+  'concluida', 'parcial', 'recusou_gravacao', 'cliente_desligou',
+  'nao_e_o_titular', 'sem_contato', 'transferida',
+];
+
 export async function rotasConversa(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>('/calls/:id/transcricao', async (req, reply) => {
     const { data: chamada } = await supabase
@@ -21,9 +27,13 @@ export async function rotasConversa(app: FastifyInstance) {
 
     if (!chamada) return reply.code(404).send({ erro: 'chamada não encontrada' });
 
-    // Já temos em cache e a chamada terminou: devolve direto.
-    if (chamada.transcricao && chamada.status !== 'em_andamento') {
+    const encerrada = ENCERRADOS.includes(chamada.status ?? '');
+
+    // Cache só serve para chamada encerrada. Enquanto está no ar, sempre
+    // busca de novo — é o que aproxima o painel do tempo real.
+    if (encerrada && chamada.transcricao) {
       return {
+        encerrada: true,
         transcricao: chamada.transcricao,
         resumo: chamada.resumo,
         duracao_segundos: chamada.duracao_segundos,
@@ -41,10 +51,11 @@ export async function rotasConversa(app: FastifyInstance) {
         .update({ transcricao, resumo, duracao_segundos: duracao })
         .eq('id', chamada.id);
 
-      return { transcricao, resumo, duracao_segundos: duracao };
+      return { encerrada, transcricao, resumo, duracao_segundos: duracao };
     } catch (e) {
-      req.log.error({ e }, 'falha ao buscar transcricao');
-      return reply.code(502).send({ erro: 'não consegui buscar a transcrição agora' });
+      // Conversa recém-criada ainda não existe do lado deles: não é erro.
+      req.log.warn({ e: String(e) }, 'transcricao indisponivel');
+      return { encerrada, transcricao: [], resumo: null, duracao_segundos: 0 };
     }
   });
 
