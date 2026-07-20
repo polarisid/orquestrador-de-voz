@@ -14,13 +14,14 @@ set -a; . ./.env; set +a
 : "${EL_SIP_SENHA:?defina EL_SIP_SENHA no .env}"
 : "${EL_FROM_USER:?defina EL_FROM_USER no .env — o DID como a ElevenLabs manda no From, com o +}"
 : "${ESCUTA_SENHA:=trocar-esta-senha}"
-export ESCUTA_SENHA
+: "${CALLER_ID_SAIDA:?defina CALLER_ID_SAIDA no .env — o numero que aparece no visor do cliente}"
+export ESCUTA_SENHA CALLER_ID_SAIDA
 export EL_SIP_USUARIO EL_SIP_SENHA EL_FROM_USER
 export IFALEI_SERVIDOR="${IFALEI_SERVIDOR:-sip.ifalei.com.br}"
 
 command -v envsubst >/dev/null || apt-get install -y -qq gettext-base
 
-VARS='${IFALEI_USUARIO} ${IFALEI_SENHA} ${IFALEI_SERVIDOR} ${ARI_SENHA} ${EL_SIP_USUARIO} ${EL_SIP_SENHA} ${EL_FROM_USER} ${ESCUTA_SENHA}'
+VARS='${IFALEI_USUARIO} ${IFALEI_SENHA} ${IFALEI_SERVIDOR} ${ARI_SENHA} ${EL_SIP_USUARIO} ${EL_SIP_SENHA} ${EL_FROM_USER} ${ESCUTA_SENHA} ${CALLER_ID_SAIDA}'
 
 for t in conf/*.template; do
   destino="${t%.template}"
@@ -31,4 +32,10 @@ done
 
 echo
 echo "--- conferencia ---"
-grep -E "^username=|^password=|^client_uri=|^server_uri=|^\[" conf/pjsip.conf
+grep -E "^username=|^password=|^client_uri=|^server_uri=" conf/pjsip.conf
+echo
+echo "Endpoints gerados:"
+grep -E "^\[" conf/pjsip.conf | sort -u
+echo
+echo "Caller ID de saida:"
+grep -m1 "CALLERID(num)" conf/extensions.conf

@@ -1,0 +1,63 @@
+[general]
+static=yes
+writeprotect=no
+
+; ============================================================
+; TESTE — valida o tronco sem envolver a ElevenLabs.
+;   channel originate PJSIP/5579XXXXXXXXX@ifalei application Milliwatt
+; ============================================================
+
+[saida-triagem]
+exten => _X.,1,NoOp(Teste manual para ${EXTEN})
+ same => n,Dial(PJSIP/${EXTEN}@ifalei,60)
+ same => n,Hangup()
+
+; ============================================================
+; PONTE — chamadas vindas da ElevenLabs saem pelo tronco iFalei.
+;
+; A ElevenLabs manda em E.164 com o +. A iFalei espera so digitos.
+; Casamos QUALQUER destino e normalizamos, em vez de depender de um
+; padrao exato de digitos — formato de numero varia por DDD e por
+; celular/fixo, e um padrao rigido falha silenciosamente com 404.
+; ============================================================
+
+[da-elevenlabs]
+exten => _[+]X.,1,Goto(sair,${EXTEN:1},1)
+exten => _X.,1,Goto(sair,${EXTEN},1)
+
+[sair]
+exten => _X.,1,NoOp(ElevenLabs -> ${EXTEN})
+ same => n,Set(CALLERID(num)=${CALLER_ID_SAIDA})
+ same => n,Dial(PJSIP/${EXTEN}@ifalei,60)
+ same => n,NoOp(Resultado: ${DIALSTATUS} / ${HANGUPCAUSE})
+ same => n,Hangup()
+
+; Qualquer coisa que nao casou acima cai aqui e fica registrada,
+; em vez de sumir com um 404 sem explicacao.
+exten => i,1,NoOp(DESTINO NAO RECONHECIDO: ${EXTEN})
+ same => n,Hangup()
+
+; ============================================================
+; ESCUTA POR SOFTPHONE — caminho alternativo ao painel.
+;
+; Registre um softphone (MicroSIP, Zoiper) no endpoint "escuta" e
+; disque 90. Voce entra em modo espiao: ouve, mas nao e ouvido.
+; Tecla # pula para a proxima chamada ativa.
+;
+; Serve como plano B se a escuta pelo navegador nao funcionar, e
+; como plano A se voce so quiser ouvir do celular.
+; ============================================================
+
+[escuta]
+exten => 90,1,Answer()
+ same => n,Wait(1)
+ same => n,ChanSpy(PJSIP,qb)
+ same => n,Hangup()
+
+; ============================================================
+; TRANSBORDO — ramal humano.
+; ============================================================
+
+[atendimento]
+exten => _X.,1,Dial(PJSIP/${EXTEN}@ifalei,45)
+ same => n,Hangup()

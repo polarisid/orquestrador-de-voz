@@ -283,6 +283,31 @@ table.diff tr:last-child td{border-bottom:0}
 .filtros button:hover{background:none;color:var(--tinta)}
 .filtros button[aria-pressed="true"]{color:var(--tinta);border-bottom-color:var(--sinal)}
 
+/* ---------- diálogo de diagnóstico ---------- */
+dialog{
+  border:1px solid var(--linha);border-radius:var(--r);
+  padding:22px 24px;max-width:620px;width:calc(100% - 40px);
+  background:var(--carta);color:var(--tinta);font-family:inherit;
+}
+dialog::backdrop{background:rgba(19,30,29,.4)}
+dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700}
+.veredito{
+  padding:10px 12px;border-radius:var(--r);font-size:13.5px;line-height:1.55;
+  margin-bottom:14px;border:1px solid;
+}
+.veredito.bom{background:var(--sinal-claro);border-color:#B4D8D1;color:#0A5049}
+.veredito.ruim{background:#FBEDE9;border-color:#EBC7BC;color:var(--alerta)}
+.linhas{font-size:13px}
+.linha-diag{
+  display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--linha);
+  align-items:baseline;
+}
+.linha-diag:last-child{border-bottom:0}
+.linha-diag b{font-weight:500;min-width:180px;color:var(--aco);font-size:12px}
+.linha-diag span{font-family:'IBM Plex Mono',monospace;font-size:12px;word-break:break-all}
+.ok{color:var(--sinal)}
+.nok{color:var(--alerta)}
+
 /* ---------- abas ---------- */
 .abas{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--linha)}
 .aba{
@@ -320,6 +345,7 @@ table.diff tr:last-child td{border-bottom:0}
   <h1>Mesa de triagem</h1>
   <span class="sub">Smart Center Aracaju &middot; ASC 0003198122</span>
   <span class="pulso"><span class="ponto"></span><span id="pulso-txt">atualizando</span></span>
+  <button type="button" class="sair" id="btn-diag" style="margin-left:14px">Diagnóstico</button>
   <span class="sessao" id="sessao" hidden>
     <span id="usuario"></span>
     <button type="button" class="sair" id="sair">Sair</button>
@@ -398,6 +424,15 @@ table.diff tr:last-child td{border-bottom:0}
     </div>
   </section>
 </main>
+
+<dialog id="diag">
+  <h2 style="margin:0 0 4px">Ponte com o Asterisk</h2>
+  <p class="explica" style="margin:0 0 14px">Usado por <em>Escutar</em> e <em>Desligar chamada</em>.</p>
+  <div id="diag-corpo"><p class="carregando">Testando…</p></div>
+  <div class="acoes" style="margin-top:16px">
+    <button type="button" class="btn-fraco" id="diag-fechar">Fechar</button>
+  </div>
+</dialog>
 
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -652,6 +687,41 @@ document.getElementById('btn-restaurar').addEventListener('click', () => {
 });
 
 montarRoteiro();
+
+/* ---------- diagnóstico ---------- */
+const diag = document.getElementById('diag');
+document.getElementById('diag-fechar').addEventListener('click', () => diag.close());
+
+document.getElementById('btn-diag').addEventListener('click', async () => {
+  const corpo = document.getElementById('diag-corpo');
+  corpo.innerHTML = `<p class="carregando">Testando os endereços possíveis…</p>`;
+  diag.showModal();
+
+  try{
+    const d = await (await api('/diagnostico')).json();
+    const bom = d.ari === 'ok';
+
+    const linhas = [
+      ['IP do orquestrador', (d.ip_do_orquestrador ?? []).join(', ')],
+      ['Gateway detectado', d.gateway_detectado ?? '—'],
+      ['Endereço em uso', d.url_ari_em_uso],
+      ['ARI_SENHA preenchida', d.ari_senha_preenchida ? 'sim' : 'não'],
+    ];
+
+    corpo.innerHTML = `
+      <div class="veredito ${bom ? 'bom' : 'ruim'}">${esc(d.sugestao ?? '')}</div>
+      <div class="linhas">
+        ${linhas.map(([k,v]) => `<div class="linha-diag"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join('')}
+        ${Object.entries(d.tentativas ?? {}).map(([url, r]) => `
+          <div class="linha-diag">
+            <b>${esc(url.replace('/ari',''))}</b>
+            <span class="${String(r).startsWith('ok') ? 'ok' : 'nok'}">${esc(r)}</span>
+          </div>`).join('')}
+      </div>`;
+  }catch{
+    corpo.innerHTML = `<p class="carregando">Não consegui rodar o diagnóstico.</p>`;
+  }
+});
 
 /* ---------- escuta ao vivo ---------- */
 
