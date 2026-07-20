@@ -73,7 +73,13 @@ o limite de gasto. É a rede de segurança que importa se algo passar.
 
 ## 2. ElevenLabs: importar o número SIP
 
-Painel > Agents > Phone Numbers > **Import a phone number from SIP trunk**.
+Fica em **Agents > Phone Numbers** (não dentro do agente):
+https://elevenlabs.io/app/agents/phone-numbers
+
+Se o botão de SIP não aparecer, é limitação de plano — número de telefone e SIP
+trunking não vêm no gratuito.
+
+### Pelo painel
 
 | Campo | Valor |
 |---|---|
@@ -88,6 +94,22 @@ Painel > Agents > Phone Numbers > **Import a phone number from SIP trunk**.
 
 Copie o **id do número** que aparece depois de salvar — é o
 `ELEVENLABS_PHONE_NUMBER_ID`.
+
+### Ou pela API
+
+Preencha `EL_NUMERO`, `EL_ENDERECO`, `EL_SIP_USUARIO` e `EL_SIP_SENHA` no `.env`
+da raiz e rode:
+
+    npm run importar-numero
+
+Imprime o `ELEVENLABS_PHONE_NUMBER_ID` direto. Se der 422, o corpo do erro diz
+qual campo a API espera — o formato de `inbound_trunk`/`outbound_trunk` mudou
+entre versões da API.
+
+Para conferir o que já existe na conta:
+
+    curl -s https://api.elevenlabs.io/v1/convai/phone-numbers \
+      -H "xi-api-key: SUA_CHAVE"
 
 ## 3. Criar o agente e as tools
 

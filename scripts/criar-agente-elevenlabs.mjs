@@ -44,7 +44,20 @@ async function api(path, body, method = 'POST') {
     body: body ? JSON.stringify(body) : undefined,
   });
   const txt = await r.text();
-  if (!r.ok) throw new Error(`${path} -> ${r.status} ${txt}`);
+  if (!r.ok) {
+    console.error(`\nFalhou em ${path} -> ${r.status}\n`);
+    try {
+      const e = JSON.parse(txt);
+      for (const d of e.detail ?? []) {
+        console.error(`  campo: ${(d.loc ?? []).join('.')}`);
+        console.error(`  problema: ${d.msg}\n`);
+      }
+      if (!Array.isArray(e.detail)) console.error(txt);
+    } catch {
+      console.error(txt);
+    }
+    process.exit(1);
+  }
   return txt ? JSON.parse(txt) : {};
 }
 
@@ -52,18 +65,21 @@ async function api(path, body, method = 'POST') {
 const S = (description, extra = {}) => ({ type: 'string', description, ...extra });
 
 /**
- * Toda tool carrega conversation_id como variavel dinamica do sistema.
- * E assim que o orquestrador sabe de qual chamada se trata.
+ * conversation_id vem como variavel dinamica do sistema — e assim que o
+ * orquestrador sabe de qual chamada se trata.
  */
-const idDaConversa = {
-  id: 'conversation_id',
+const ID_DA_CONVERSA = {
   type: 'string',
-  value_type: 'dynamic_variable',
+  // A API aceita SO UM entre description, dynamic_variable, is_system_provided,
+  // constant_value ou is_omitted. Como o valor vem da variavel de sistema,
+  // fica so o dynamic_variable — sem description.
   dynamic_variable: 'system__conversation_id',
-  description: 'Identificador da conversa. Preenchido automaticamente.',
-  required: true,
 };
 
+/**
+ * A API espera `properties` como DICIONARIO (nome -> definicao) e `required`
+ * como lista de nomes, no formato JSON Schema. Nao como array de campos.
+ */
 function tool(nome, descricao, propriedades, obrigatorios) {
   return {
     tool_config: {
@@ -78,7 +94,7 @@ function tool(nome, descricao, propriedades, obrigatorios) {
         request_body_schema: {
           type: 'object',
           description: descricao,
-          properties: [idDaConversa, ...propriedades],
+          properties: { conversation_id: ID_DA_CONVERSA, ...propriedades },
           required: ['conversation_id', ...obrigatorios],
         },
       },
@@ -90,100 +106,81 @@ const TOOLS = [
   tool(
     'confirmar_cadastro',
     'Registra nome e endereco confirmados ou corrigidos pelo cliente. Chame so depois que o cliente confirmar os dois verbalmente.',
-    [
-      { id: 'nome', ...S('Nome completo confirmado'), required: true },
-      { id: 'endereco', ...S('Logradouro, numero, complemento, bairro, cidade'), required: true },
-      { id: 'cep', ...S('CEP, se o cliente souber') },
-      { id: 'ponto_referencia', ...S('Referencia para o tecnico achar o local') },
-      { id: 'restricao_horario', ...S('Ex: so a tarde, nao pode segunda. Vazio se nenhuma.') },
-      {
-        id: 'houve_correcao',
+    {
+      nome: S('Nome completo confirmado'),
+      endereco: S('Logradouro, numero, complemento, bairro, cidade'),
+      cep: S('CEP, se o cliente souber'),
+      ponto_referencia: S('Referencia para o tecnico achar o local'),
+      restricao_horario: S('Ex: so a tarde, nao pode segunda. Vazio se nenhuma.'),
+      houve_correcao: {
         type: 'boolean',
         description: 'true se algum dado divergiu do cadastro original',
-        required: true,
       },
-    ],
+    },
     ['nome', 'endereco', 'houve_correcao'],
   ),
 
   tool(
     'consultar_codigo_erro',
     'Consulta a base tecnica Samsung quando o cliente cita um codigo de erro no painel. Devolve a explicacao em linguagem simples.',
-    [
-      { id: 'codigo', ...S('Codigo exibido no painel. Ex: E1, CH38, 5E'), required: true },
-      { id: 'linha', ...S('Linha do produto: RAC, REF, WSM, TV, MWO ou OUTRO') },
-      { id: 'modelo', ...S('Modelo, se diferente do cadastrado') },
-    ],
+    {
+      codigo: S('Codigo exibido no painel. Ex: E1, CH38, 5E'),
+      linha: S('Linha do produto: RAC, REF, WSM, TV, MWO ou OUTRO'),
+      modelo: S('Modelo, se diferente do cadastrado'),
+    },
     ['codigo'],
   ),
 
   tool(
     'registrar_sintoma',
     'Grava a triagem do sintoma e dispara a analise tecnica. Chame uma unica vez, ao final da investigacao.',
-    [
-      {
-        id: 'sintoma_confirmado',
-        ...S('Descricao tecnica do problema, em uma ou duas frases'),
-        required: true,
-      },
-      { id: 'inicio', ...S('Quando comecou. Ex: ha 3 dias, desde a instalacao') },
-      {
-        id: 'frequencia',
-        ...S('constante, intermitente ou nao_informado'),
-        required: true,
-      },
-      { id: 'codigo_erro', ...S('Codigo citado, se houver') },
-      {
-        id: 'fatores',
+    {
+      sintoma_confirmado: S('Descricao tecnica do problema, em uma ou duas frases'),
+      inicio: S('Quando comecou. Ex: ha 3 dias, desde a instalacao'),
+      frequencia: S('constante, intermitente ou nao_informado'),
+      codigo_erro: S('Codigo citado, se houver'),
+      fatores: {
         type: 'array',
         description:
           'Eventos relatados: queda de energia, mudanca de local, instalacao recente, infiltracao',
         items: { type: 'string' },
       },
-      {
-        id: 'divergiu_da_abertura',
+      divergiu_da_abertura: {
         type: 'boolean',
         description: 'true se o sintoma real difere do informado na abertura da OS',
-        required: true,
       },
-    ],
+    },
     ['sintoma_confirmado', 'frequencia', 'divergiu_da_abertura'],
   ),
 
   tool(
     'enviar_link_documentos',
     'Envia por WhatsApp ou SMS o link de upload da nota fiscal e da foto da etiqueta do produto.',
-    [
-      { id: 'canal', ...S('whatsapp ou sms'), required: true },
-      { id: 'telefone', ...S('Somente digitos, com DDD. Ex: 79999998888'), required: true },
-    ],
+    {
+      canal: S('whatsapp ou sms'),
+      telefone: S('Somente digitos, com DDD. Ex: 79999998888'),
+    },
     ['canal', 'telefone'],
   ),
 
   tool(
     'transferir_humano',
     'Registra que a ligacao precisa de atendente humano. Use quando o cliente pedir, demonstrar irritacao, ou apos duas falhas seguidas de entendimento.',
-    [
-      {
-        id: 'motivo',
-        ...S('pedido_do_cliente, insatisfacao, falha_entendimento ou fora_do_escopo'),
-        required: true,
-      },
-    ],
+    {
+      motivo: S('pedido_do_cliente, insatisfacao, falha_entendimento ou fora_do_escopo'),
+    },
     ['motivo'],
   ),
 
   tool(
     'encerrar_triagem',
     'Finaliza a triagem registrando o desfecho. Chame antes de se despedir.',
-    [
-      {
-        id: 'status',
-        ...S('concluida, parcial, recusou_gravacao, cliente_desligou ou nao_e_o_titular'),
-        required: true,
-      },
-      { id: 'observacao', ...S('Qualquer coisa relevante que nao coube nos outros campos') },
-    ],
+    {
+      status: S(
+        'concluida, parcial, recusou_gravacao, cliente_desligou ou nao_e_o_titular',
+      ),
+      observacao: S('Qualquer coisa relevante que nao coube nos outros campos'),
+    },
     ['status'],
   ),
 ];
