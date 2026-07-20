@@ -8,6 +8,9 @@ import { rotasRoteiro } from './routes/roteiro.js';
 import { rotasConversa } from './routes/conversa.js';
 import { authAtiva, validarToken } from './services/auth.js';
 import { iniciarReconciliacao } from './services/reconciliar.js';
+import { rotasEscuta } from './routes/escuta.js';
+import { registrarApp } from './services/escuta.js';
+import fastifyWebsocket from '@fastify/websocket';
 import { rotasTools } from './routes/tools.js';
 import { rotasEventos } from './routes/eventos.js';
 
@@ -23,7 +26,7 @@ app.addHook('preHandler', async (req, reply) => {
 });
 
 /** Rotas que nunca exigem login. */
-const LIVRE = ['/health', '/config', '/login.html', '/webhooks/'];
+const LIVRE = ['/health', '/config', '/login.html', '/webhooks/', '/escuta/'];
 
 // Login do painel. Só liga quando o Supabase está configurado.
 app.addHook('preHandler', async (req, reply) => {
@@ -52,6 +55,7 @@ app.get('/config', async () => ({
 
 // Painel da mesa de triagem
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+await app.register(fastifyWebsocket);
 await app.register(fastifyStatic, { root: resolve(raiz, 'public') });
 
 app.get('/health', async () => {
@@ -63,9 +67,11 @@ app.get('/health', async () => {
 await app.register(rotasDisparo);
 await app.register(rotasRoteiro);
 await app.register(rotasConversa);
+await app.register(rotasEscuta);
 await app.register(rotasTools);
 await app.register(rotasEventos);
 
 iniciarReconciliacao(app.log);
+registrarApp(app.log);
 
 await app.listen({ port: Number(process.env.PORT ?? 3001), host: '0.0.0.0' });

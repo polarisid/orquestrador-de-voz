@@ -282,3 +282,47 @@ caso de o webhook pós-chamada não estar configurado ou se perder.
 
 Chamada que passa de 20 minutos sem desfecho é encerrada como `sem_contato` —
 sem isso, uma conversa que nunca completa ficaria sendo consultada para sempre.
+
+
+### Escutar a ligação ao vivo
+
+Não existe endpoint da ElevenLabs para isso. O áudio passa pelo seu Asterisk, e
+é lá que bifurcamos:
+
+    canal da ligação
+         ├─ snoop (spy=both) ─┐
+         │                    ├─ bridge ─► externalMedia ─RTP─► orquestrador
+         └─ segue normal      │                                      │
+                                                          WebSocket ─► navegador
+
+O snoop é somente leitura. Nem o cliente nem o agente ouvem o supervisor.
+
+**Pré-requisitos** (os mesmos do botão de desligar):
+
+    ASTERISK_ARI_URL=http://172.17.0.1:8088/ari
+    ARI_USUARIO=triagem
+    ARI_SENHA=<a mesma de telefonia/.env>
+
+O RTP vai do Asterisk (rede host) para o container do orquestrador numa porta
+alta sorteada a cada sessão. O IP é detectado sozinho; se sua rede for atípica,
+force com `ESCUTA_HOST`.
+
+**Como usar:** abra uma chamada em andamento e clique em **Escutar**. As barras
+ao lado do botão mostram o nível de áudio — se elas se mexem, está chegando som.
+
+**Se não funcionar**, a mensagem ao lado do botão diz o motivo. Os dois mais
+comuns são `falta configurar ARI_SENHA` e `não há canal ativo`.
+
+Para conferir do lado do Asterisk durante uma escuta:
+
+    docker exec -it asterisk-triagem asterisk -rx "core show channels"
+
+Devem aparecer o canal da ligação, um `Snoop/...` e um `UnicastRTP/...`.
+
+#### Plano B: escutar por softphone
+
+Mais simples e sem navegador. Registre um softphone (MicroSIP, Zoiper) em
+`31.97.86.62`, TCP 5060, usuário `escuta`, senha do `ESCUTA_SENHA`. Disque **90**
+e você entra em modo espião. Tecla `#` pula para a próxima chamada ativa.
+
+Funciona do celular também, o que é útil para supervisão fora da mesa.

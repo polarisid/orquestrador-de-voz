@@ -13,12 +13,14 @@ set -a; . ./.env; set +a
 : "${EL_SIP_USUARIO:=elevenlabs}"
 : "${EL_SIP_SENHA:?defina EL_SIP_SENHA no .env}"
 : "${EL_FROM_USER:?defina EL_FROM_USER no .env — o DID como a ElevenLabs manda no From, com o +}"
+: "${ESCUTA_SENHA:=trocar-esta-senha}"
+export ESCUTA_SENHA
 export EL_SIP_USUARIO EL_SIP_SENHA EL_FROM_USER
 export IFALEI_SERVIDOR="${IFALEI_SERVIDOR:-sip.ifalei.com.br}"
 
 command -v envsubst >/dev/null || apt-get install -y -qq gettext-base
 
-VARS='${IFALEI_USUARIO} ${IFALEI_SENHA} ${IFALEI_SERVIDOR} ${ARI_SENHA} ${EL_SIP_USUARIO} ${EL_SIP_SENHA} ${EL_FROM_USER}'
+VARS='${IFALEI_USUARIO} ${IFALEI_SENHA} ${IFALEI_SERVIDOR} ${ARI_SENHA} ${EL_SIP_USUARIO} ${EL_SIP_SENHA} ${EL_FROM_USER} ${ESCUTA_SENHA}'
 
 for t in conf/*.template; do
   destino="${t%.template}"

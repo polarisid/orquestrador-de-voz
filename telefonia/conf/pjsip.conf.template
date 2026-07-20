@@ -116,3 +116,34 @@ dtmf_mode=rfc4733
 ; type=identify
 ; endpoint=${EL_FROM_USER}
 ; match=35.224.94.240
+
+; ============================================================
+; RAMAL DE ESCUTA — para o softphone do supervisor.
+; Registro dinamico, TCP na 5060 (a mesma porta da ElevenLabs;
+; a autenticacao e por usuario, entao convivem).
+; ============================================================
+
+[escuta-auth]
+type=auth
+auth_type=userpass
+username=escuta
+password=${ESCUTA_SENHA}
+
+[escuta]
+type=aor
+max_contacts=2
+remove_existing=yes
+
+[escuta]
+type=endpoint
+transport=transport-el
+context=escuta
+disallow=all
+allow=ulaw
+allow=alaw
+aors=escuta
+auth=escuta-auth
+direct_media=no
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes

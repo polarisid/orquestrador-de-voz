@@ -263,6 +263,15 @@ table.diff tr:last-child td{border-bottom:0}
 .btn-fraco:hover{background:var(--papel);color:var(--tinta)}
 .selo.revisada{color:var(--sinal)}
 .btn-perigo{background:var(--alerta)}
+.btn-escutar{background:var(--tinta)}
+.btn-escutar:hover{background:#000}
+.btn-escutar[data-ligado="1"]{background:var(--sinal)}
+.nivel{
+  display:inline-flex;align-items:flex-end;gap:2px;height:16px;
+  margin-left:2px;vertical-align:-3px;
+}
+.nivel i{width:3px;background:currentColor;border-radius:1px;height:3px}
+.status-escuta{font-size:12.5px;color:var(--aco)}
 .btn-perigo:hover{background:#8E3220}
 
 /* filtros */
@@ -569,7 +578,13 @@ async function atualizar(){
         el.querySelector('.miolo').innerHTML = corpo(c);
       }
 
-      if (abertos.has(c.id) && ATIVOS.includes(c.status)) abrirDetalhe(el, c.id, true);
+      if (abertos.has(c.id) && ATIVOS.includes(c.status)) {
+        abrirDetalhe(el, c.id, true);
+      } else if (escutas.has(c.id)) {
+        // Chamada acabou: não há mais o que escutar.
+        escutas.get(c.id).desligar();
+        escutas.delete(c.id);
+      }
     });
 
     for (const el of [...lista_el.querySelectorAll('.chamada')])
@@ -638,6 +653,105 @@ document.getElementById('btn-restaurar').addEventListener('click', () => {
 
 montarRoteiro();
 
+/* ---------- escuta ao vivo ---------- */
+
+/**
+ * Tabela de conversão µ-law -> PCM 16 bits. O Asterisk manda ulaw a 8 kHz;
+ * a Web Audio API só toca Float32. Pré-computar as 256 entradas evita fazer
+ * a conta bit a bit em cada um dos 8000 samples por segundo.
+ */
+const MULAW = (() => {
+  const t = new Float32Array(256);
+  for (let i = 0; i < 256; i++) {
+    const u = ~i & 0xff;
+    let v = ((u & 0x0f) << 3) + 0x84;
+    v <<= (u & 0x70) >> 4;
+    v -= 0x84;
+    t[i] = ((u & 0x80) ? -v : v) / 32768;
+  }
+  return t;
+})();
+
+class Escuta {
+  constructor(id, botao, status){
+    this.id = id; this.botao = botao; this.status = status;
+    this.ws = null; this.ctx = null; this.proximo = 0; this.barras = null;
+  }
+
+  async ligar(){
+    this.ctx = new AudioContext({ sampleRate: 8000 });
+    await this.ctx.resume();
+    this.proximo = this.ctx.currentTime + 0.2;   // colchão contra jitter da rede
+    this.barras = [...this.botao.querySelectorAll('.nivel i')];
+
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+    this.ws = new WebSocket(`${proto}://${location.host}/escuta/${this.id}${qs}`);
+    this.ws.binaryType = 'arraybuffer';
+
+    this.status.textContent = 'conectando…';
+
+    this.ws.onmessage = ev => {
+      if (typeof ev.data === 'string') {
+        const m = JSON.parse(ev.data);
+        if (m.erro) { this.status.textContent = MSG_ESCUTA[m.erro] ?? m.erro; this.desligar(); return; }
+        this.status.textContent = 'ouvindo — o cliente e o agente não te escutam';
+        this.botao.dataset.ligado = '1';
+        return;
+      }
+      this.tocar(new Uint8Array(ev.data));
+    };
+
+    this.ws.onerror = () => { this.status.textContent = 'falha na conexão'; };
+    this.ws.onclose  = () => { if (this.ctx) this.desligar(); };
+  }
+
+  tocar(bytes){
+    const buf = this.ctx.createBuffer(1, bytes.length, 8000);
+    const canal = buf.getChannelData(0);
+    let pico = 0;
+    for (let i = 0; i < bytes.length; i++) {
+      const v = MULAW[bytes[i]];
+      canal[i] = v;
+      const a = v < 0 ? -v : v;
+      if (a > pico) pico = a;
+    }
+
+    const fonte = this.ctx.createBufferSource();
+    fonte.buffer = buf;
+    fonte.connect(this.ctx.destination);
+
+    // Se atrasamos, reancora: melhor um salto curto do que acumular atraso.
+    if (this.proximo < this.ctx.currentTime) this.proximo = this.ctx.currentTime + 0.05;
+    fonte.start(this.proximo);
+    this.proximo += buf.duration;
+
+    if (this.barras) {
+      const n = Math.min(4, Math.round(pico * 9));
+      this.barras.forEach((b, i) => { b.style.height = (i < n ? 4 + i * 3.5 : 3) + 'px'; });
+    }
+  }
+
+  desligar(){
+    try { this.ws?.close(); } catch {}
+    try { this.ctx?.close(); } catch {}
+    this.ws = null; this.ctx = null;
+    this.botao.dataset.ligado = '0';
+    this.barras?.forEach(b => { b.style.height = '3px'; });
+    if (this.status.textContent === 'ouvindo — o cliente e o agente não te escutam')
+      this.status.textContent = '';
+  }
+}
+
+const MSG_ESCUTA = {
+  nao_autenticado: 'sessão expirada, recarregue a página',
+  ari_nao_configurado: 'falta configurar ARI_SENHA no servidor',
+  sem_canal_ativo: 'não há canal ativo — a ligação já terminou?',
+  chamada_nao_encontrada: 'chamada não encontrada',
+};
+
+const escutas = new Map();
+
 /* ---------- transcrição e áudio ---------- */
 const mmss = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 
@@ -689,6 +803,17 @@ async function abrirDetalhe(el, id, silencioso){
           }));
         });
     }
+
+    alvo.querySelector('.btn-escutar')?.addEventListener('click', async ev => {
+      ev.stopPropagation();
+      const botao = ev.currentTarget;
+      const status = alvo.querySelector('.status-escuta');
+      const atual = escutas.get(id);
+      if (atual) { atual.desligar(); escutas.delete(id); return; }
+      const e = new Escuta(id, botao, status);
+      escutas.set(id, e);
+      try { await e.ligar(); } catch { status.textContent = 'não consegui iniciar o áudio'; }
+    });
 
     alvo.querySelector('.btn-desligar')?.addEventListener('click', async ev => {
       ev.stopPropagation();
@@ -823,9 +948,11 @@ function secaoConversa(d, viva){
 
 function acoesAoVivo(id){
   return `<div class="acoes">
+    <button type="button" class="btn-escutar" data-ligado="0">
+      Escutar <span class="nivel"><i></i><i></i><i></i><i></i></span>
+    </button>
     <button type="button" class="btn-desligar btn-perigo">Desligar chamada</button>
-    <span style="font-size:12.5px;color:var(--aco)">
-      Encerra a ligação derrubando o canal no Asterisk.</span>
+    <span class="status-escuta"></span>
   </div>`;
 }
 
@@ -847,6 +974,7 @@ document.getElementById('lista').addEventListener('click', ev => {
   if (abertos.has(id)) {
     abertos.delete(id);
     prontos.delete(id);
+    escutas.get(id)?.desligar(); escutas.delete(id);
     el.querySelector('.detalhe').hidden = true;
     el.setAttribute('aria-expanded','false');
   } else {
