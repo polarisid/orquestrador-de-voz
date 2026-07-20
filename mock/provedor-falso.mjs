@@ -38,6 +38,30 @@ createServer(async (req, res) => {
     return;
   }
 
+  // GET /convai/conversations/<id> — transcricao falsa
+  if (req.method === 'GET' && /\/convai\/conversations\/[^/]+$/.test(url)) {
+    res.end(JSON.stringify({
+      transcript: [
+        { role: 'agent',  message: 'Ola! Aqui e o assistente da Smart Center Aracaju. Estou ligando sobre a ordem de servico 4181234567. Posso continuar?', time_in_call_secs: 0 },
+        { role: 'user',   message: 'Pode sim.', time_in_call_secs: 8 },
+        { role: 'agent',  message: 'O nome no cadastro esta como Maria da Silva. Esta correto?', time_in_call_secs: 11 },
+        { role: 'user',   message: 'E Maria da Silva Santos, na verdade.', time_in_call_secs: 16 },
+        { role: 'agent',  message: 'Anotado. E o endereco: Rua X, numero 100, Farolandia. Confere?', time_in_call_secs: 21 },
+        { role: 'user',   message: 'Falta o apartamento, 302.', time_in_call_secs: 28 },
+      ],
+      metadata: { call_duration_secs: 214, termination_reason: 'end_call_tool' },
+      analysis: { transcript_summary: 'Cadastro corrigido (complemento e sobrenome). Sintoma confirmado como falha de refrigeracao com codigo E1. Documentos enviados por SMS.' },
+    }));
+    return;
+  }
+
+  // GET /convai/conversations/<id>/audio — bytes quaisquer, so para o player existir
+  if (req.method === 'GET' && url.endsWith('/audio')) {
+    res.setHeader('content-type', 'audio/mpeg');
+    res.end(Buffer.alloc(2048));
+    return;
+  }
+
   if (url.endsWith('/transfer')) {
     console.log('>> TRANSFERIU para', json.to);
     res.end('{}');

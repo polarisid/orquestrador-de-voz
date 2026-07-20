@@ -71,6 +71,20 @@ export const voz = {
     return { id: r.conversation_id, sipCallId: r.sip_call_id };
   },
 
+  /** Detalhes da conversa: transcrição, duração, análise. */
+  async conversa(conversationId: string) {
+    return api(`/convai/conversations/${conversationId}`, undefined, 'GET');
+  },
+
+  /** Áudio da gravação. Devolve os bytes crus para o painel tocar. */
+  async audio(conversationId: string): Promise<ArrayBuffer> {
+    const r = await fetch(`${BASE()}/convai/conversations/${conversationId}/audio`, {
+      headers: { 'xi-api-key': KEY() },
+    });
+    if (!r.ok) throw new Error(`audio ${conversationId}: ${r.status}`);
+    return r.arrayBuffer();
+  },
+
   /**
    * Transferência: na ElevenLabs isso é uma transfer rule configurada no
    * próprio agente (transfer_to_number), não uma chamada de API.

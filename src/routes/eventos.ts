@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { supabase } from '../services/supabase.js';
+import { normalizar } from '../services/transcricao.js';
 
 /**
  * Webhook pós-chamada da ElevenLabs.
@@ -68,7 +69,7 @@ export async function rotasEventos(app: FastifyInstance) {
       .from('chamadas_triagem')
       .update({
         duracao_segundos: duracao,
-        transcricao: data?.transcript ?? null,
+        transcricao: normalizar(data?.transcript),
         resumo: data?.analysis?.transcript_summary ?? null,
         ultimo_resultado: motivo || null,
         finalizada_em: new Date().toISOString(),

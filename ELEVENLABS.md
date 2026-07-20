@@ -175,3 +175,38 @@ Cobram por minuto de conversa, e a iFalei cobra o minuto de terminação. Some o
 dois e multiplique pelo seu volume mensal de OS antes de escalar. Se não fechar,
 o caminho alternativo é gravação + transcrição assíncrona, sem conversa em tempo
 real.
+
+
+---
+
+## Depois que a primeira ligação funcionar
+
+### O agente falou em inglês
+
+O campo `language` sozinho não segura. Rode:
+
+    npm run atualizar-agente
+
+Ele faz PATCH no agente existente com `language: pt`, `asr.language: pt`, a voz
+do `ELEVENLABS_VOICE_ID` e uma ordem explícita no topo do prompt mandando falar
+sempre em português. A próxima ligação já usa a versão nova — não precisa
+redeploy nem recriar tools.
+
+Se continuar em inglês depois disso, o problema é a voz: vozes treinadas em
+inglês puxam o modelo para o inglês. Troque por uma pt-BR de verdade.
+
+### Transcrição e áudio no painel
+
+Clique em qualquer cartão para expandir. Aparecem o resumo, o player da gravação
+e o diálogo com carimbo de tempo — agente à esquerda, cliente à direita.
+
+Os dados vêm da API sob demanda (`GET /v1/convai/conversations/:id`), não do
+webhook. Isso significa que funciona mesmo sem o webhook pós-chamada
+configurado, e continua funcionando se um webhook se perder. A primeira leitura
+grava no banco; as seguintes saem do cache.
+
+O áudio é servido por `/calls/:id/audio`, que faz proxy da ElevenLabs — a chave
+de API nunca chega ao navegador.
+
+Se o player vier vazio logo após a ligação, espere alguns segundos: a gravação
+leva um tempo para ficar disponível do lado deles.

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { rotasDisparo } from './routes/disparo.js';
 import { rotasRoteiro } from './routes/roteiro.js';
+import { rotasConversa } from './routes/conversa.js';
 import { rotasTools } from './routes/tools.js';
 import { rotasEventos } from './routes/eventos.js';
 
@@ -31,6 +32,7 @@ app.get('/health', async () => {
 
 await app.register(rotasDisparo);
 await app.register(rotasRoteiro);
+await app.register(rotasConversa);
 await app.register(rotasTools);
 await app.register(rotasEventos);
 
