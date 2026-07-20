@@ -10,6 +10,8 @@ interface DisparoBody {
   produto_modelo: string;
   produto_linha: string;     // RAC | REF | WSM | TV | MWO
   sintoma_declarado: string;
+  /** em_garantia | fora_garantia | a_confirmar */
+  garantia: 'em_garantia' | 'fora_garantia' | 'a_confirmar';
   /** Roteiro editado no painel. Vazio = o agente usa o prompt padrão dele. */
   roteiro?: string;
 }
@@ -54,6 +56,7 @@ export async function rotasDisparo(app: FastifyInstance) {
         produtoModelo: b.produto_modelo,
         produtoLinha: b.produto_linha,
         sintomaDeclarado: b.sintoma_declarado,
+        garantia: b.garantia ?? 'a_confirmar',
       },
     });
 
@@ -67,6 +70,7 @@ export async function rotasDisparo(app: FastifyInstance) {
         produto_modelo: b.produto_modelo,
         produto_linha: b.produto_linha,
         sintoma_declarado: b.sintoma_declarado,
+        garantia: b.garantia ?? 'a_confirmar',
         cadastro_nome_original: b.cliente_nome,
         cadastro_endereco_original: b.cliente_endereco,
         roteiro_customizado: Boolean(b.roteiro?.trim()),

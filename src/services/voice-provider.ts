@@ -30,6 +30,7 @@ export interface DadosChamada {
   produtoModelo: string;
   produtoLinha: string;
   sintomaDeclarado: string;
+  garantia: string;
 }
 
 export const voz = {
@@ -60,6 +61,7 @@ export const voz = {
           produto_modelo: p.dados.produtoModelo,
           produto_linha: p.dados.produtoLinha,
           sintoma_declarado: p.dados.sintomaDeclarado,
+          garantia: p.dados.garantia,
         },
         ...(Object.keys(overrides).length
           ? { conversation_config_override: { agent: overrides } }

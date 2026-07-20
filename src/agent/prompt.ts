@@ -13,6 +13,7 @@ export interface ContextoChamada {
   produtoModelo: string;
   produtoLinha: string; // RAC, REF, WSM, TV...
   sintomaDeclarado: string; // o que veio na abertura da OS
+  garantia: 'em_garantia' | 'fora_garantia' | 'a_confirmar';
 }
 
 export function montarPrompt(ctx: ContextoChamada): string {
@@ -30,6 +31,11 @@ Nome no cadastro: ${ctx.clienteNome}
 Endereço no cadastro: ${ctx.clienteEndereco}
 Produto: ${ctx.produtoLinha} ${ctx.produtoModelo}
 Sintoma informado na abertura: ${ctx.sintomaDeclarado}
+Situação de garantia: ${{
+  em_garantia: 'EM GARANTIA',
+  fora_garantia: 'FORA DE GARANTIA',
+  a_confirmar: 'A CONFIRMAR',
+}[ctx.garantia]}
 
 # Roteiro — siga nesta ordem
 
@@ -51,7 +57,17 @@ Não dê diagnóstico fechado nem estimativa de preço. Se perguntarem, diga que
 Quando tiver o quadro, chame registrar_sintoma com a descrição em linguagem técnica.
 
 ## 4. Documentação
-Explique que para o atendimento em garantia é preciso a nota fiscal de compra e uma foto da etiqueta de identificação do produto, aquela com o número de série.
+${
+  ctx.garantia === 'fora_garantia'
+    ? `O produto está FORA DE GARANTIA. Diga isso com clareza e sem rodeios: a visita técnica tem custo de deslocamento, e o reparo é feito mediante orçamento aprovado pelo cliente. Não fale valores — quem informa é o setor comercial.
+Peça apenas uma foto da etiqueta de identificação do produto, aquela com o número de série. Não peça nota fiscal.
+Pergunte se, sabendo que há custo, o cliente quer seguir com a visita. Se disser não, chame encerrar_triagem com status parcial e observação "recusou por custo".`
+    : ctx.garantia === 'a_confirmar'
+      ? `A situação de garantia ainda não foi confirmada. Explique que a cobertura depende da data de compra, e por isso são necessárias a nota fiscal e uma foto da etiqueta de identificação do produto, aquela com o número de série.
+Avise que, se o produto estiver fora do prazo, a visita terá custo — e que o setor comercial informa os valores antes de qualquer agendamento.`
+      : `O produto está EM GARANTIA. Explique que para o atendimento são necessárias a nota fiscal de compra e uma foto da etiqueta de identificação do produto, aquela com o número de série.
+Não diga que o reparo está garantido: a cobertura ainda depende da avaliação técnica no local.`
+}
 Pergunte por qual canal prefere receber o link de envio: WhatsApp ou SMS.
 Confirme o número de telefone antes de enviar. Depois chame enviar_link_documentos.
 Diga que o envio da documentação é o que libera o agendamento da visita.

@@ -210,3 +210,43 @@ de API nunca chega ao navegador.
 
 Se o player vier vazio logo após a ligação, espere alguns segundos: a gravação
 leva um tempo para ficar disponível do lado deles.
+
+
+### Login do painel
+
+O painel usa Supabase Auth. Sem `SUPABASE_URL` e `SUPABASE_ANON_KEY`
+configurados a autenticação fica **desligada** — o que é conveniente para rodar
+local, mas nunca deixe assim num domínio público.
+
+Para ligar:
+
+1. No projeto Supabase, em Authentication > Providers, deixe Email habilitado e
+   **desligue** "Enable sign ups" — você não quer que qualquer um crie conta.
+2. Em Authentication > Users, crie manualmente os usuários da equipe.
+3. No Coolify, preencha:
+
+       SUPABASE_URL=https://xxxx.supabase.co
+       SUPABASE_ANON_KEY=eyJ...
+
+   A chave anon é pública por design; ela vai para o navegador. A que nunca
+   pode vazar é a `service_role`.
+
+4. Deploy. O painel passa a redirecionar para `/login.html`.
+
+Os webhooks continuam autenticando por `x-signature`, não por login — a
+ElevenLabs não faz login.
+
+### Garantia muda a conversa
+
+O campo **Garantia** no formulário tem três valores e cada um leva o agente por
+um caminho diferente na etapa 4:
+
+| Valor | O que o agente faz |
+|---|---|
+| Em garantia | Pede nota fiscal + etiqueta. Não promete cobertura. |
+| Fora de garantia | Avisa do custo de visita e do orçamento. Pede só a etiqueta. Pergunta se quer seguir mesmo assim. |
+| A confirmar | Explica que depende da data de compra. Pede os dois documentos e avisa da possibilidade de custo. |
+
+Nenhum dos três fala valores — quem informa preço é o comercial. Isso é
+deliberado: valor dito por telefone por um agente vira expectativa que você
+não controla.

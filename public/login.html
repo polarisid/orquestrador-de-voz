@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar — Mesa de triagem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --papel:#F1F4F3;--carta:#FFFFFF;--tinta:#131E1D;--aco:#5C6E6C;
+  --linha:#D2DAD8;--sinal:#0E6B60;--alerta:#A93D24;--r:3px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;background:var(--papel);color:var(--tinta);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:15px;
+  display:grid;place-items:center;padding:24px;
+  -webkit-font-smoothing:antialiased;
+}
+.caixa{
+  width:100%;max-width:352px;background:var(--carta);
+  border:1px solid var(--linha);border-radius:var(--r);padding:28px 26px;
+}
+h1{
+  font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;
+  letter-spacing:-.01em;margin:0 0 4px;
+}
+.sub{color:var(--aco);font-size:13px;margin:0 0 22px}
+label{display:block;margin-bottom:14px}
+label span{
+  display:block;font-size:12px;font-weight:500;color:var(--aco);margin-bottom:4px;
+}
+input{
+  width:100%;padding:9px 11px;border:1px solid var(--linha);
+  border-radius:var(--r);background:var(--carta);color:var(--tinta);
+  font-family:inherit;font-size:14px;
+}
+input:focus{outline:2px solid var(--sinal);outline-offset:-1px;border-color:var(--sinal)}
+button{
+  width:100%;padding:11px 16px;border:0;border-radius:var(--r);
+  background:var(--sinal);color:#fff;cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;
+}
+button:hover{background:#0B5850}
+button:disabled{background:var(--aco);cursor:not-allowed}
+button:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
+.erro{
+  margin:13px 0 0;padding:9px 11px;border-radius:var(--r);font-size:13px;
+  background:#FBEDE9;border:1px solid #EBC7BC;color:var(--alerta);
+}
+.erro[hidden]{display:none}
+</style>
+</head>
+<body>
+<main class="caixa">
+  <h1>Mesa de triagem</h1>
+  <p class="sub">Smart Center Aracaju</p>
+
+  <form id="form">
+    <label><span>E-mail</span>
+      <input type="email" name="email" required autocomplete="username"></label>
+    <label><span>Senha</span>
+      <input type="password" name="senha" required autocomplete="current-password"></label>
+    <button type="submit" id="btn">Entrar</button>
+    <p class="erro" id="erro" hidden></p>
+  </form>
+</main>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const cfg = await (await fetch('/config')).json();
+
+// Sem Supabase configurado não existe login — vai direto para o painel.
+if (!cfg.auth) location.replace('/');
+
+const sb = createClient(cfg.supabase_url, cfg.supabase_anon_key);
+
+// Já autenticado: não faz sentido ficar na tela de login.
+const { data: { session } } = await sb.auth.getSession();
+if (session) location.replace('/');
+
+const erro = (txt) => {
+  const el = document.getElementById('erro');
+  el.textContent = txt;
+  el.hidden = false;
+};
+
+document.getElementById('form').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const btn = document.getElementById('btn');
+  const f = new FormData(ev.target);
+  btn.disabled = true; btn.textContent = 'Entrando…';
+  document.getElementById('erro').hidden = true;
+
+  const { error } = await sb.auth.signInWithPassword({
+    email: f.get('email'),
+    password: f.get('senha'),
+  });
+
+  if (error) {
+    erro(error.message === 'Invalid login credentials'
+      ? 'E-mail ou senha incorretos.'
+      : error.message);
+    btn.disabled = false; btn.textContent = 'Entrar';
+    return;
+  }
+  location.replace('/');
+});
+</script>
+</body>
+</html>

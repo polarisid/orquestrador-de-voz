@@ -11,6 +11,7 @@ create table if not exists chamadas_triagem (
   produto_modelo text,
   produto_linha text,
   sintoma_declarado text,
+  garantia text default 'a_confirmar',
 
   -- cadastro: o que estava na OS vs o que o cliente confirmou
   cadastro_nome_original text,

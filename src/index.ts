@@ -6,12 +6,13 @@ import { dirname, resolve } from 'node:path';
 import { rotasDisparo } from './routes/disparo.js';
 import { rotasRoteiro } from './routes/roteiro.js';
 import { rotasConversa } from './routes/conversa.js';
+import { authAtiva, validarToken } from './services/auth.js';
 import { rotasTools } from './routes/tools.js';
 import { rotasEventos } from './routes/eventos.js';
 
 const app = Fastify({ logger: true });
 
-// Valide a assinatura do webhook do provedor antes de confiar no payload.
+// Webhooks autenticam por assinatura compartilhada, não por login.
 app.addHook('preHandler', async (req, reply) => {
   if (!req.url.startsWith('/webhooks/')) return;
   const assinatura = req.headers['x-signature'];
@@ -19,6 +20,34 @@ app.addHook('preHandler', async (req, reply) => {
     return reply.code(401).send({ erro: 'assinatura inválida' });
   }
 });
+
+/** Rotas que nunca exigem login. */
+const LIVRE = ['/health', '/config', '/login.html', '/webhooks/'];
+
+// Login do painel. Só liga quando o Supabase está configurado.
+app.addHook('preHandler', async (req, reply) => {
+  if (!authAtiva()) return;
+  const url = req.url.split('?')[0];
+  if (LIVRE.some((p) => url === p || url.startsWith(p))) return;
+  // Arquivos estáticos passam; o próprio index.html redireciona para o login.
+  if (/\.(html|css|js|ico|png|svg|woff2?)$/.test(url) || url === '/') return;
+
+  const cab = req.headers.authorization ?? '';
+  const token = cab.startsWith('Bearer ') ? cab.slice(7) : '';
+  if (!token) return reply.code(401).send({ erro: 'nao_autenticado' });
+
+  const usuario = await validarToken(token);
+  if (!usuario) return reply.code(401).send({ erro: 'nao_autenticado' });
+
+  (req as any).usuario = usuario;
+});
+
+/** O navegador precisa da URL e da chave anon para falar com o Supabase. */
+app.get('/config', async () => ({
+  auth: authAtiva(),
+  supabase_url: process.env.SUPABASE_URL ?? null,
+  supabase_anon_key: process.env.SUPABASE_ANON_KEY ?? null,
+}));
 
 // Painel da mesa de triagem
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');

@@ -48,6 +48,14 @@ header .pulso{
   margin-left:auto;display:flex;align-items:center;gap:7px;
   font-size:12px;color:var(--aco);
 }
+.sessao{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--aco)}
+.sessao[hidden]{display:none}
+.sair{
+  width:auto;padding:4px 10px;font-size:12px;
+  background:transparent;color:var(--aco);border:1px solid var(--linha);
+  border-radius:var(--r);cursor:pointer;font-family:inherit;font-weight:500;
+}
+.sair:hover{background:var(--papel);color:var(--tinta)}
 .ponto{width:7px;height:7px;border-radius:50%;background:var(--sinal)}
 @media (prefers-reduced-motion:no-preference){
   .ponto{animation:bate 2.4s ease-in-out infinite}
@@ -125,7 +133,7 @@ button:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
 .os{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:15px}
 .nome{color:var(--aco);font-size:14px}
 .selo{
-  margin-left:auto;font-size:11px;font-weight:600;letter-spacing:.06em;
+  font-size:11px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;padding:2px 7px;border-radius:2px;
   border:1px solid currentColor;
 }
@@ -133,6 +141,9 @@ button:focus-visible{outline:2px solid var(--tinta);outline-offset:2px}
 .selo.feita{color:var(--aco)}
 .selo.falha{color:var(--alerta)}
 .selo.espera{color:var(--espera)}
+.selo.gar-dentro{color:var(--sinal)}
+.selo.gar-fora{color:var(--alerta)}
+.selo.gar-confirmar{color:var(--espera)}
 
 /* trilho de etapas — a sequencia da ligacao */
 .trilho{display:flex;gap:2px;margin:13px 0 9px}
@@ -244,6 +255,10 @@ audio{width:100%;margin-bottom:14px}
   <h1>Mesa de triagem</h1>
   <span class="sub">Smart Center Aracaju &middot; ASC 0003198122</span>
   <span class="pulso"><span class="ponto"></span><span id="pulso-txt">atualizando</span></span>
+  <span class="sessao" id="sessao" hidden>
+    <span id="usuario"></span>
+    <button type="button" class="sair" id="sair">Sair</button>
+  </span>
 </header>
 
 <main>
@@ -278,6 +293,13 @@ audio{width:100%;margin-bottom:14px}
           <input class="mono" name="produto_modelo" required placeholder="AR12BVHZCWK"></label>
       </div>
 
+      <label><span>Garantia</span>
+        <select name="garantia" required>
+          <option value="a_confirmar">A confirmar</option>
+          <option value="em_garantia">Em garantia</option>
+          <option value="fora_garantia">Fora de garantia</option>
+        </select></label>
+
       <label><span>Sintoma informado na abertura</span>
         <textarea name="sintoma_declarado" required placeholder="não gela"></textarea></label>
 
@@ -307,7 +329,43 @@ audio{width:100%;margin-bottom:14px}
   </section>
 </main>
 
-<script>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/* ---------- sessão ---------- */
+const cfg = await (await fetch('/config')).json();
+let sb = null;
+let token = null;
+
+if (cfg.auth) {
+  sb = createClient(cfg.supabase_url, cfg.supabase_anon_key);
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) location.replace('/login.html');
+  token = session.access_token;
+
+  document.getElementById('usuario').textContent = session.user.email ?? '';
+  document.getElementById('sessao').hidden = false;
+  document.getElementById('sair').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    location.replace('/login.html');
+  });
+
+  // O token expira; o Supabase renova sozinho e avisa por aqui.
+  sb.auth.onAuthStateChange((_evento, sessao) => {
+    if (!sessao) return location.replace('/login.html');
+    token = sessao.access_token;
+  });
+}
+
+/** fetch com o token da sessão. Toda chamada ao servidor passa por aqui. */
+async function api(caminho, opcoes = {}) {
+  const cab = { ...(opcoes.headers ?? {}) };
+  if (token) cab.authorization = `Bearer ${token}`;
+  const r = await fetch(caminho, { ...opcoes, headers: cab });
+  if (r.status === 401 && cfg.auth) location.replace('/login.html');
+  return r;
+}
+
 const ETAPAS = [
   { id:'abertura',    rot:'Abertura'  },
   { id:'cadastro_ok', rot:'Cadastro'  },
@@ -336,7 +394,8 @@ function indiceEtapa(c){
   return Math.max(0, ETAPAS.findIndex(e => e.id === c.etapa));
 }
 
-function cartao(c){
+/** Só o miolo do cartão. O invólucro e o detalhe são preservados entre atualizações. */
+function corpo(c){
   const i = indiceEtapa(c);
   const encerrada = i === 4;
   const [classe, texto] = SELOS[c.status] ?? ['espera', c.status ?? '—'];
@@ -353,34 +412,84 @@ function cartao(c){
   if (c.codigo_erro) dados.push(`<span>erro <b class="mono">${esc(c.codigo_erro)}</b></span>`);
   if (c.doc_canal) dados.push(`<span>docs por <b>${esc(c.doc_canal)}</b></span>`);
   if (c.roteiro_customizado) dados.push(`<span class="marca-roteiro">roteiro ajustado</span>`);
+  const GARANTIA = {
+    em_garantia:  ['gar-dentro','em garantia'],
+    fora_garantia:['gar-fora','fora de garantia'],
+    a_confirmar:  ['gar-confirmar','garantia a confirmar'],
+  };
+  const [gcls, gtxt] = GARANTIA[c.garantia] ?? GARANTIA.a_confirmar;
   if (c.duracao_segundos) dados.push(`<span><b class="mono">${Math.floor(c.duracao_segundos/60)}m${String(c.duracao_segundos%60).padStart(2,'0')}s</b></span>`);
 
-  return `<article class="chamada" data-id="${c.id}" tabindex="0" role="button" aria-expanded="false">
-    <div class="topo">
+  return `<div class="topo">
       <span class="os">${esc(c.os_numero)}</span>
       <span class="nome">${esc(c.cadastro_nome_original ?? '')} &middot; ${esc(c.produto_modelo ?? '')}</span>
+      <span style="margin-left:auto"></span>
+      <span class="selo ${gcls}">${gtxt}</span>
       <span class="selo ${classe}">${esc(texto)}</span>
     </div>
     <div class="trilho">${trilho}</div>
     ${c.sintoma_confirmado ? `<p class="dados" style="margin:0 0 7px"><span>${esc(c.sintoma_confirmado)}</span></p>` : ''}
-    ${dados.length ? `<div class="dados">${dados.join('')}</div>` : ''}
-    <div class="detalhe" hidden></div>
-  </article>`;
+    ${dados.length ? `<div class="dados">${dados.join('')}</div>` : ''}`;
 }
 
 const abertos = new Set();
 
+/**
+ * Assinatura do que o cartão mostra. Se não mudou, o DOM não é tocado —
+ * é o que evita a tela piscar e perder a rolagem a cada 3 segundos.
+ */
+const assinatura = c => JSON.stringify([
+  c.status, c.etapa, c.garantia, c.cadastro_nome, c.cadastro_corrigido,
+  c.restricao_horario, c.codigo_erro, c.doc_canal, c.duracao_segundos,
+  c.sintoma_confirmado, c.roteiro_customizado,
+]);
+
+const ATIVOS = ['discando', 'em_andamento', 'pendente'];
+
 async function atualizar(){
+  const lista_el = document.getElementById('lista');
   try{
-    const r = await fetch('/calls');
+    const r = await api('/calls');
     const lista = await r.json();
-    document.getElementById('lista').innerHTML = lista.length
-      ? lista.map(cartao).join('')
-      : `<p class="vazio">Nenhuma chamada ainda. Preencha a OS ao lado para começar.</p>`;
-    for (const id of abertos) {
-      const el = document.querySelector(`.chamada[data-id="${id}"]`);
-      if (el) abrirDetalhe(el, id, true);
+
+    if (!lista.length) {
+      if (!lista_el.querySelector('.vazio'))
+        lista_el.innerHTML = `<p class="vazio">Nenhuma chamada ainda. Preencha a OS ao lado para começar.</p>`;
+      return;
     }
+    lista_el.querySelector('.vazio')?.remove();
+
+    const vistos = new Set();
+
+    lista.forEach((c, i) => {
+      vistos.add(c.id);
+      let el = lista_el.querySelector(`.chamada[data-id="${c.id}"]`);
+
+      if (!el) {
+        el = document.createElement('article');
+        el.className = 'chamada';
+        el.dataset.id = c.id;
+        el.tabIndex = 0;
+        el.setAttribute('role','button');
+        el.setAttribute('aria-expanded','false');
+        el.innerHTML = `<div class="miolo"></div><div class="detalhe" hidden></div>`;
+      }
+
+      // Reordena sem recriar: move o nó, preservando player e rolagem.
+      const naPosicao = lista_el.children[i];
+      if (naPosicao !== el) lista_el.insertBefore(el, naPosicao ?? null);
+
+      if (el.dataset.assinatura !== assinatura(c)) {
+        el.dataset.assinatura = assinatura(c);
+        el.querySelector('.miolo').innerHTML = corpo(c);
+      }
+
+      if (abertos.has(c.id) && ATIVOS.includes(c.status)) abrirDetalhe(el, c.id, true);
+    });
+
+    for (const el of [...lista_el.querySelectorAll('.chamada')])
+      if (!vistos.has(el.dataset.id)) el.remove();
+
     document.getElementById('pulso-txt').textContent =
       new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }catch{
@@ -413,7 +522,7 @@ async function montarRoteiro(){
   const dados = Object.fromEntries(new FormData(document.getElementById('form')));
   delete dados.roteiro;
   try{
-    const r = await fetch('/roteiro/preview', {
+    const r = await api('/roteiro/preview', {
       method:'POST',
       headers:{'content-type':'application/json'},
       body: JSON.stringify(dados),
@@ -458,7 +567,7 @@ async function abrirDetalhe(el, id, silencioso){
   if (!silencioso) alvo.innerHTML = `<p class="carregando">Buscando a conversa…</p>`;
 
   try{
-    const r = await fetch(`/calls/${id}/transcricao`);
+    const r = await api(`/calls/${id}/transcricao`);
     if (!r.ok) throw new Error();
     const d = await r.json();
     const falas = d.transcricao ?? [];
@@ -474,7 +583,7 @@ async function abrirDetalhe(el, id, silencioso){
       ${d.resumo ? `<p class="resumo">${esc(d.resumo)}</p>` : ''}
       ${viva ? '' : `
         <p class="rotulo">Gravação</p>
-        <audio controls preload="none" src="/calls/${id}/audio"></audio>`}
+        <audio controls preload="none"></audio>`}
       <p class="rotulo">
         ${viva
           ? `<span class="aovivo"><span class="ponto"></span>ao vivo</span>`
@@ -492,6 +601,21 @@ async function abrirDetalhe(el, id, silencioso){
 
     const dialogo = alvo.querySelector('.dialogo');
     if (dialogo && noFim) dialogo.scrollTop = dialogo.scrollHeight;
+
+    // A tag <audio> não manda cabeçalho de autorização, então buscamos os
+    // bytes por fetch e entregamos como blob.
+    const player = alvo.querySelector('audio');
+    if (player && !player.src) {
+      api(`/calls/${id}/audio`)
+        .then(r => (r.ok ? r.blob() : Promise.reject()))
+        .then(b => { player.src = URL.createObjectURL(b); })
+        .catch(() => {
+          player.replaceWith(Object.assign(document.createElement('p'), {
+            className: 'carregando',
+            textContent: 'Gravação ainda não disponível. Tente reabrir em alguns segundos.',
+          }));
+        });
+    }
   }catch{
     alvo.innerHTML = `<p class="carregando">Não consegui buscar a conversa agora.</p>`;
   }
@@ -536,7 +660,7 @@ document.getElementById('form').addEventListener('submit', async ev => {
   if (editadoAMao) dados.roteiro = campoRoteiro.value;
   btn.disabled = true; btn.textContent = 'Discando…';
   try{
-    const r = await fetch('/calls', {
+    const r = await api('/calls', {
       method:'POST',
       headers:{'content-type':'application/json'},
       body: JSON.stringify(dados),

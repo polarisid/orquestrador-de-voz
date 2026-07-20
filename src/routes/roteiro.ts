@@ -14,6 +14,7 @@ export async function rotasRoteiro(app: FastifyInstance) {
       produto_modelo?: string;
       produto_linha?: string;
       sintoma_declarado?: string;
+      garantia?: 'em_garantia' | 'fora_garantia' | 'a_confirmar';
     };
   }>('/roteiro/preview', async (req) => {
     const b = req.body ?? {};
@@ -25,6 +26,7 @@ export async function rotasRoteiro(app: FastifyInstance) {
         produtoModelo: b.produto_modelo || '(modelo)',
         produtoLinha: b.produto_linha || '(linha)',
         sintomaDeclarado: b.sintoma_declarado || '(sintoma da abertura)',
+        garantia: b.garantia ?? 'a_confirmar',
       }),
     };
   });
