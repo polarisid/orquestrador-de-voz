@@ -8,7 +8,9 @@
  * O orquestrador roda em container do Coolify; o Asterisk roda em rede host.
  * Por isso o endereço padrão é o gateway da bridge do Docker, não 127.0.0.1.
  */
-const URL_BASE = () => process.env.ASTERISK_ARI_URL ?? 'http://172.17.0.1:8088/ari';
+import { urlAri } from './rede.js';
+
+const URL_BASE = urlAri;
 const USUARIO = () => process.env.ARI_USUARIO ?? 'triagem';
 const SENHA = () => process.env.ARI_SENHA ?? '';
 

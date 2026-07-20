@@ -161,7 +161,8 @@ export async function rotasConversa(app: FastifyInstance) {
       req.log.error({ e: String(e) }, 'falha ao desligar');
       return reply.code(502).send({
         erro: 'falha_ari',
-        mensagem: 'Não consegui falar com o Asterisk. Confira ASTERISK_ARI_URL.',
+        mensagem: 'Não consegui falar com o Asterisk. Abra /diagnostico para ver o motivo.',
+        detalhe: String(e),
       });
     }
   });

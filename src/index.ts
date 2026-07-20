@@ -9,6 +9,7 @@ import { rotasConversa } from './routes/conversa.js';
 import { authAtiva, validarToken } from './services/auth.js';
 import { iniciarReconciliacao } from './services/reconciliar.js';
 import { rotasEscuta } from './routes/escuta.js';
+import { rotasDiagnostico } from './routes/diagnostico.js';
 import { registrarApp } from './services/escuta.js';
 import fastifyWebsocket from '@fastify/websocket';
 import { rotasTools } from './routes/tools.js';
@@ -68,6 +69,7 @@ await app.register(rotasDisparo);
 await app.register(rotasRoteiro);
 await app.register(rotasConversa);
 await app.register(rotasEscuta);
+await app.register(rotasDiagnostico);
 await app.register(rotasTools);
 await app.register(rotasEventos);
 

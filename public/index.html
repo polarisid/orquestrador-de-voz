@@ -746,6 +746,7 @@ class Escuta {
 const MSG_ESCUTA = {
   nao_autenticado: 'sessão expirada, recarregue a página',
   ari_nao_configurado: 'falta configurar ARI_SENHA no servidor',
+  falha_ari: 'não alcancei o Asterisk — veja /diagnostico',
   sem_canal_ativo: 'não há canal ativo — a ligação já terminou?',
   chamada_nao_encontrada: 'chamada não encontrada',
 };
@@ -823,8 +824,8 @@ async function abrirDetalhe(el, id, silencioso){
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
         b.disabled = false; b.textContent = 'Desligar chamada';
-        b.insertAdjacentHTML('afterend',
-          `<span style="font-size:12.5px;color:var(--alerta)">${esc(e.mensagem ?? 'Não consegui desligar.')}</span>`);
+        alvo.querySelector('.status-escuta').innerHTML =
+          `<span style="color:var(--alerta)">${esc(e.mensagem ?? 'Não consegui desligar.')}</span>`;
         return;
       }
       prontos.delete(id);

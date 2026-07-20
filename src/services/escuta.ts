@@ -20,7 +20,9 @@ import WebSocket from 'ws';
 
 const APP = 'triagem-escuta';
 
-const base = () => (process.env.ASTERISK_ARI_URL ?? 'http://172.17.0.1:8088/ari').replace(/\/$/, '');
+import { urlAri } from './rede.js';
+
+const base = urlAri;
 const usuario = () => process.env.ARI_USUARIO ?? 'triagem';
 const senha = () => process.env.ARI_SENHA ?? '';
 
