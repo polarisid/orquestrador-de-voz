@@ -410,7 +410,9 @@ document.getElementById('form').addEventListener('submit', async ev => {
       body: JSON.stringify(dados),
     });
     const corpo = await r.json();
-    if (r.status === 202) {
+    if (r.status === 503) {
+      aviso('erro','Faltam variáveis de ambiente no servidor: ' + (corpo.faltando ?? []).join(', ') + '. Preencha e refaça o deploy.');
+    } else if (r.status === 202) {
       aviso('erro','Fora da janela de atendimento (8h às 20h, segunda a sábado). A chamada não foi disparada.');
     } else if (!r.ok) {
       aviso('erro','A chamada não saiu. Verifique o tronco e tente de novo.');

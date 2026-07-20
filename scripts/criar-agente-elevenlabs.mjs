@@ -143,7 +143,8 @@ const TOOLS = [
         type: 'array',
         description:
           'Eventos relatados: queda de energia, mudanca de local, instalacao recente, infiltracao',
-        items: { type: 'string' },
+        // A regra vale recursivamente: o item do array tambem precisa de description.
+        items: { type: 'string', description: 'Um fator relatado pelo cliente' },
       },
       divergiu_da_abertura: {
         type: 'boolean',

@@ -27,6 +27,18 @@ export async function rotasDisparo(app: FastifyInstance) {
   app.post<{ Body: DisparoBody }>('/calls', async (req, reply) => {
     const b = req.body;
 
+    // Erra cedo e com mensagem clara, em vez de deixar a API devolver 422.
+    const faltando = ['ELEVENLABS_API_KEY', 'ELEVENLABS_AGENT_ID', 'ELEVENLABS_PHONE_NUMBER_ID']
+      .filter((v) => !process.env[v]);
+    if (faltando.length) {
+      req.log.error({ faltando }, 'configuracao_incompleta');
+      return reply.code(503).send({
+        erro: 'configuracao_incompleta',
+        faltando,
+        mensagem: 'Preencha estas variáveis de ambiente e refaça o deploy.',
+      });
+    }
+
     // Janela permitida: 8h-20h, seg-sáb. DRY_RUN=true ignora (só em teste).
     if (process.env.DRY_RUN !== 'true' && !dentroDaJanela()) {
       return reply.code(202).send({ status: 'agendada_proxima_janela' });

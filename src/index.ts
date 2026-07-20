@@ -23,7 +23,11 @@ app.addHook('preHandler', async (req, reply) => {
 const raiz = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 await app.register(fastifyStatic, { root: resolve(raiz, 'public') });
 
-app.get('/health', async () => ({ ok: true }));
+app.get('/health', async () => {
+  const faltando = ['ELEVENLABS_API_KEY', 'ELEVENLABS_AGENT_ID', 'ELEVENLABS_PHONE_NUMBER_ID']
+    .filter((v) => !process.env[v]);
+  return { ok: true, ...(faltando.length ? { configuracao_faltando: faltando } : {}) };
+});
 
 await app.register(rotasDisparo);
 await app.register(rotasRoteiro);
