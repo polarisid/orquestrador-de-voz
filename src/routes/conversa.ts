@@ -2,11 +2,12 @@ import type { FastifyInstance } from 'fastify';
 import { supabase } from '../services/supabase.js';
 import { voz } from '../services/voice-provider.js';
 import { normalizar } from '../services/transcricao.js';
+import { ariConfigurado, desligarPorTelefone } from '../services/asterisk.js';
 
 /** Status em que a chamada acabou de vez — só aí o cache vale. */
 const ENCERRADOS = [
   'concluida', 'parcial', 'recusou_gravacao', 'cliente_desligou',
-  'nao_e_o_titular', 'sem_contato', 'transferida',
+  'nao_e_o_titular', 'sem_contato', 'transferida', 'encerrada_pelo_operador',
 ];
 
 /** Campos de cadastro que o cliente pode ter corrigido na ligação. */
@@ -52,8 +53,18 @@ export async function rotasConversa(app: FastifyInstance) {
     }
 
     // O que divergiu entre o cadastro da OS e o que o cliente confirmou.
+    // Compara ignorando pontuação, acento e caixa: "Rua X 04" e "Rua X, 04"
+    // são o mesmo endereço, e sinalizar isso como correção gera ruído.
+    const canonico = (v: string) =>
+      String(v ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+
     const correcoes = CAMPOS_CADASTRO.filter(
-      (f) => c[f.chave] && c[f.chave] !== c[f.original],
+      (f) => c[f.chave] && canonico(c[f.chave]) !== canonico(c[f.original]),
     ).map((f) => ({
       rotulo: f.rotulo,
       antes: c[f.original] ?? '',
@@ -116,6 +127,43 @@ export async function rotasConversa(app: FastifyInstance) {
     const novo = c.revisada_em ? null : new Date().toISOString();
     await supabase.from('chamadas_triagem').update({ revisada_em: novo }).eq('id', c.id);
     return { revisada: Boolean(novo) };
+  });
+
+  /** Desliga a ligação em andamento derrubando o canal no Asterisk. */
+  app.post<{ Params: { id: string } }>('/calls/:id/desligar', async (req, reply) => {
+    if (!ariConfigurado()) {
+      return reply.code(503).send({
+        erro: 'ari_nao_configurado',
+        mensagem: 'Preencha ARI_SENHA e ASTERISK_ARI_URL para poder desligar pelo painel.',
+      });
+    }
+
+    const { data: c } = await supabase
+      .from('chamadas_triagem')
+      .select('id, telefone, status')
+      .eq('id', req.params.id)
+      .single();
+    if (!c) return reply.code(404).send({ erro: 'chamada não encontrada' });
+
+    try {
+      const derrubados = await desligarPorTelefone(c.telefone);
+      await supabase
+        .from('chamadas_triagem')
+        .update({
+          status: 'encerrada_pelo_operador',
+          finalizada_em: new Date().toISOString(),
+          observacao: 'Ligação encerrada manualmente pelo painel.',
+        })
+        .eq('id', c.id);
+
+      return { ok: true, canais_derrubados: derrubados };
+    } catch (e) {
+      req.log.error({ e: String(e) }, 'falha ao desligar');
+      return reply.code(502).send({
+        erro: 'falha_ari',
+        mensagem: 'Não consegui falar com o Asterisk. Confira ASTERISK_ARI_URL.',
+      });
+    }
   });
 
   app.get<{ Params: { id: string } }>('/calls/:id/audio', async (req, reply) => {

@@ -7,6 +7,7 @@ import { rotasDisparo } from './routes/disparo.js';
 import { rotasRoteiro } from './routes/roteiro.js';
 import { rotasConversa } from './routes/conversa.js';
 import { authAtiva, validarToken } from './services/auth.js';
+import { iniciarReconciliacao } from './services/reconciliar.js';
 import { rotasTools } from './routes/tools.js';
 import { rotasEventos } from './routes/eventos.js';
 
@@ -64,5 +65,7 @@ await app.register(rotasRoteiro);
 await app.register(rotasConversa);
 await app.register(rotasTools);
 await app.register(rotasEventos);
+
+iniciarReconciliacao(app.log);
 
 await app.listen({ port: Number(process.env.PORT ?? 3001), host: '0.0.0.0' });

@@ -262,6 +262,8 @@ table.diff tr:last-child td{border-bottom:0}
 .btn-fraco{background:transparent;color:var(--aco);border:1px solid var(--linha)}
 .btn-fraco:hover{background:var(--papel);color:var(--tinta)}
 .selo.revisada{color:var(--sinal)}
+.btn-perigo{background:var(--alerta)}
+.btn-perigo:hover{background:#8E3220}
 
 /* filtros */
 .filtros{display:flex;gap:16px;margin-bottom:14px;font-size:12.5px}
@@ -443,13 +445,16 @@ const SELOS = {
   sem_contato:   ['falha','sem contato'],
   cliente_desligou:['falha','desligou'],
   recusou_gravacao:['falha','recusou'],
+  nao_e_o_titular:['falha','não é o titular'],
+  encerrada_pelo_operador:['feita','encerrada por você'],
 };
 
 const esc = s => String(s ?? '').replace(/[<>&"]/g, c =>
   ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 
 function indiceEtapa(c){
-  if (['concluida','sem_contato','cliente_desligou','recusou_gravacao','transferida'].includes(c.status)) return 4;
+  if (['concluida','sem_contato','cliente_desligou','recusou_gravacao',
+       'transferida','nao_e_o_titular','encerrada_pelo_operador'].includes(c.status)) return 4;
   return Math.max(0, ETAPAS.findIndex(e => e.id === c.etapa));
 }
 
@@ -665,7 +670,7 @@ async function abrirDetalhe(el, id, silencioso){
       secaoTriagem(d),
       secaoGravacao(d, viva),
       secaoConversa(d, viva),
-      viva ? '' : acoes(id, d),
+      viva ? acoesAoVivo(id) : acoes(id, d),
     ].join('');
 
     const dialogo = alvo.querySelector('.dialogo');
@@ -684,6 +689,22 @@ async function abrirDetalhe(el, id, silencioso){
           }));
         });
     }
+
+    alvo.querySelector('.btn-desligar')?.addEventListener('click', async ev => {
+      ev.stopPropagation();
+      const b = ev.target;
+      b.disabled = true; b.textContent = 'Desligando…';
+      const r = await api(`/calls/${id}/desligar`, { method:'POST' });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        b.disabled = false; b.textContent = 'Desligar chamada';
+        b.insertAdjacentHTML('afterend',
+          `<span style="font-size:12.5px;color:var(--alerta)">${esc(e.mensagem ?? 'Não consegui desligar.')}</span>`);
+        return;
+      }
+      prontos.delete(id);
+      atualizar();
+    });
 
     alvo.querySelector('.btn-revisar')?.addEventListener('click', async ev => {
       ev.stopPropagation();
@@ -797,6 +818,14 @@ function secaoConversa(d, viva){
       : `<p class="carregando">${viva
           ? 'Os trechos aparecem conforme a ElevenLabs libera.'
           : 'Sem transcrição para esta chamada.'}</p>`}
+  </div>`;
+}
+
+function acoesAoVivo(id){
+  return `<div class="acoes">
+    <button type="button" class="btn-desligar btn-perigo">Desligar chamada</button>
+    <span style="font-size:12.5px;color:var(--aco)">
+      Encerra a ligação derrubando o canal no Asterisk.</span>
   </div>`;
 }
 

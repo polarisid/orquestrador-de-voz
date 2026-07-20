@@ -250,3 +250,35 @@ um caminho diferente na etapa 4:
 Nenhum dos três fala valores — quem informa preço é o comercial. Isso é
 deliberado: valor dito por telefone por um agente vira expectativa que você
 não controla.
+
+
+### Desligar a chamada pelo painel
+
+Vai pelo Asterisk, não pela ElevenLabs — derrubar o canal encerra a ligação de
+verdade, independente do que o agente esteja fazendo.
+
+No `telefonia/.env` você já tem `ARI_SENHA`. Repita a mesma no Coolify:
+
+    ASTERISK_ARI_URL=http://172.17.0.1:8088/ari
+    ARI_USUARIO=triagem
+    ARI_SENHA=<a mesma de telefonia/.env>
+
+`172.17.0.1` é o gateway da bridge do Docker: o orquestrador roda em container
+e o Asterisk em rede host, então `127.0.0.1` não alcança. Se o endereço for
+outro na sua VPS, confira com `ip addr show docker0`.
+
+Libere a porta apenas para a bridge, nunca para fora:
+
+    ufw allow from 172.17.0.0/16 to any port 8088 proto tcp
+
+Sem essas variáveis o botão aparece mas responde com uma mensagem explicando o
+que falta — não falha em silêncio.
+
+### O cartão não fica mais preso em "na linha"
+
+Um laço de reconciliação roda a cada 12 segundos, pergunta à ElevenLabs o estado
+das chamadas ativas e finaliza as que já acabaram. É rede de segurança para o
+caso de o webhook pós-chamada não estar configurado ou se perder.
+
+Chamada que passa de 20 minutos sem desfecho é encerrada como `sem_contato` —
+sem isso, uma conversa que nunca completa ficaria sendo consultada para sempre.

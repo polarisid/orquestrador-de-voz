@@ -41,6 +41,9 @@ create table if not exists chamadas_triagem (
 
   -- controle
   etapa text default 'abertura',
+  -- pendente | discando | em_andamento | concluida | parcial | transferida
+  -- | reagendar | sem_contato | cliente_desligou | recusou_gravacao
+  -- | nao_e_o_titular | encerrada_pelo_operador
   status text default 'pendente',
   tentativas int default 0,
   ultimo_resultado text,
