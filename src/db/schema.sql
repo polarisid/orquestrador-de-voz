@@ -53,6 +53,7 @@ create table if not exists chamadas_triagem (
 
   criada_em timestamptz default now(),
   atendida_em timestamptz,
+  revisada_em timestamptz,
   finalizada_em timestamptz
 );
 

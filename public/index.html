@@ -215,8 +215,62 @@ audio{width:100%;margin-bottom:14px}
 .fala.cliente .t{text-align:right}
 .rotulo{
   font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--aco);margin-bottom:6px;
+  color:var(--aco);margin:0 0 7px;
 }
+
+/* ---------- seções da revisão ---------- */
+.secao{margin-bottom:18px}
+.secao:last-child{margin-bottom:0}
+
+.pendencias{
+  border-left:3px solid var(--espera);
+  background:#FDF8EC;padding:11px 13px;border-radius:0 var(--r) var(--r) 0;
+  margin-bottom:18px;
+}
+.pendencias ul{margin:0;padding-left:17px;font-size:13.5px;line-height:1.65}
+.pendencias li{color:#6B5210}
+
+table.diff{width:100%;border-collapse:collapse;font-size:13.5px}
+table.diff th{
+  text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--aco);font-weight:600;padding:0 10px 6px 0;border-bottom:1px solid var(--linha);
+}
+table.diff td{padding:8px 10px 8px 0;border-bottom:1px solid var(--linha);vertical-align:top}
+table.diff tr:last-child td{border-bottom:0}
+.antes{color:var(--aco);text-decoration:line-through}
+.depois{color:var(--tinta);font-weight:500}
+
+.fatos{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px}
+.fato{border:1px solid var(--linha);border-radius:var(--r);padding:9px 11px;background:var(--carta)}
+.fato .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--aco)}
+.fato .v{font-size:13.5px;margin-top:3px}
+
+.hipotese{display:flex;align-items:center;gap:11px;margin-bottom:7px;font-size:13.5px}
+.barra{height:5px;background:var(--linha);border-radius:3px;width:88px;flex:none;overflow:hidden}
+.barra i{display:block;height:100%;background:var(--sinal)}
+.conf{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--aco);flex:none}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  font-size:12px;padding:3px 9px;border:1px solid var(--linha);
+  border-radius:12px;background:var(--carta);
+}
+.chip.mono{font-family:'IBM Plex Mono',monospace;font-size:11.5px}
+
+.acoes{display:flex;gap:10px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--linha)}
+.acoes button{width:auto;padding:8px 15px;font-size:13px}
+.btn-fraco{background:transparent;color:var(--aco);border:1px solid var(--linha)}
+.btn-fraco:hover{background:var(--papel);color:var(--tinta)}
+.selo.revisada{color:var(--sinal)}
+
+/* filtros */
+.filtros{display:flex;gap:16px;margin-bottom:14px;font-size:12.5px}
+.filtros button{
+  width:auto;padding:0;background:none;border:0;color:var(--aco);cursor:pointer;
+  font-family:inherit;font-weight:500;border-bottom:1.5px solid transparent;
+}
+.filtros button:hover{background:none;color:var(--tinta)}
+.filtros button[aria-pressed="true"]{color:var(--tinta);border-bottom-color:var(--sinal)}
 
 /* ---------- abas ---------- */
 .abas{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--linha)}
@@ -315,6 +369,11 @@ audio{width:100%;margin-bottom:14px}
     </div>
 
     <div id="pnl-chamadas" role="tabpanel" aria-labelledby="aba-chamadas">
+      <div class="filtros" id="filtros">
+        <button type="button" data-f="todas" aria-pressed="true">Todas</button>
+        <button type="button" data-f="ativas" aria-pressed="false">No ar</button>
+        <button type="button" data-f="revisar" aria-pressed="false">Precisam de revisão</button>
+      </div>
       <div id="lista"></div>
     </div>
 
@@ -424,6 +483,7 @@ function corpo(c){
       <span class="os">${esc(c.os_numero)}</span>
       <span class="nome">${esc(c.cadastro_nome_original ?? '')} &middot; ${esc(c.produto_modelo ?? '')}</span>
       <span style="margin-left:auto"></span>
+      ${c.revisada_em ? `<span class="selo revisada">revisada</span>` : ''}
       <span class="selo ${gcls}">${gtxt}</span>
       <span class="selo ${classe}">${esc(texto)}</span>
     </div>
@@ -441,20 +501,40 @@ const abertos = new Set();
 const assinatura = c => JSON.stringify([
   c.status, c.etapa, c.garantia, c.cadastro_nome, c.cadastro_corrigido,
   c.restricao_horario, c.codigo_erro, c.doc_canal, c.duracao_segundos,
-  c.sintoma_confirmado, c.roteiro_customizado,
+  c.sintoma_confirmado, c.roteiro_customizado, c.revisada_em,
 ]);
 
 const ATIVOS = ['discando', 'em_andamento', 'pendente'];
+
+let filtro = 'todas';
+document.getElementById('filtros').addEventListener('click', ev => {
+  const b = ev.target.closest('button');
+  if (!b) return;
+  filtro = b.dataset.f;
+  for (const o of document.querySelectorAll('#filtros button'))
+    o.setAttribute('aria-pressed', String(o === b));
+  atualizar();
+});
+
+const passaFiltro = c => {
+  if (filtro === 'ativas')  return ATIVOS.includes(c.status);
+  if (filtro === 'revisar') return !ATIVOS.includes(c.status) && !c.revisada_em;
+  return true;
+};
 
 async function atualizar(){
   const lista_el = document.getElementById('lista');
   try{
     const r = await api('/calls');
-    const lista = await r.json();
+    const lista = (await r.json()).filter(passaFiltro);
 
     if (!lista.length) {
-      if (!lista_el.querySelector('.vazio'))
-        lista_el.innerHTML = `<p class="vazio">Nenhuma chamada ainda. Preencha a OS ao lado para começar.</p>`;
+      const txt = filtro === 'revisar'
+        ? 'Nenhuma chamada esperando revisão.'
+        : filtro === 'ativas'
+          ? 'Nenhuma chamada no ar agora.'
+          : 'Nenhuma chamada ainda. Preencha a OS ao lado para começar.';
+      lista_el.innerHTML = `<p class="vazio">${txt}</p>`;
       return;
     }
     lista_el.querySelector('.vazio')?.remove();
@@ -564,46 +644,34 @@ async function abrirDetalhe(el, id, silencioso){
   alvo.hidden = false;
   el.setAttribute('aria-expanded','true');
   if (prontos.has(id) && alvo.innerHTML.trim()) return;   // não re-renderiza: mataria o player
-  if (!silencioso) alvo.innerHTML = `<p class="carregando">Buscando a conversa…</p>`;
+  if (!silencioso) alvo.innerHTML = `<p class="carregando">Carregando…</p>`;
 
   try{
-    const r = await api(`/calls/${id}/transcricao`);
+    const r = await api(`/calls/${id}/detalhe`);
     if (!r.ok) throw new Error();
     const d = await r.json();
-    const falas = d.transcricao ?? [];
     const viva = !d.encerrada;
-
     if (!viva) prontos.add(id);
 
-    // Preserva a rolagem do diálogo entre atualizações ao vivo.
-    const anterior = alvo.querySelector('.dialogo');
-    const noFim = !anterior || anterior.scrollTop + anterior.clientHeight >= anterior.scrollHeight - 24;
+    const dialogoAntes = alvo.querySelector('.dialogo');
+    const noFim = !dialogoAntes ||
+      dialogoAntes.scrollTop + dialogoAntes.clientHeight >= dialogoAntes.scrollHeight - 24;
 
-    alvo.innerHTML = `
-      ${d.resumo ? `<p class="resumo">${esc(d.resumo)}</p>` : ''}
-      ${viva ? '' : `
-        <p class="rotulo">Gravação</p>
-        <audio controls preload="none"></audio>`}
-      <p class="rotulo">
-        ${viva
-          ? `<span class="aovivo"><span class="ponto"></span>ao vivo</span>`
-          : `Conversa${d.duracao_segundos ? ` &middot; ${mmss(d.duracao_segundos)}` : ''}`}
-      </p>
-      ${falas.length ? `<div class="dialogo">${falas.map(f => `
-        <div class="fala ${f.quem}">
-          <span class="t">${mmss(f.segundo)}</span>
-          <span class="txt">${esc(f.texto)}</span>
-        </div>`).join('')}</div>`
-        : `<p class="carregando">${viva
-            ? 'A conversa aparece aqui conforme a ElevenLabs libera os trechos. A gravação fica disponível quando a ligação terminar.'
-            : 'Sem transcrição para esta chamada.'}</p>`}
-    `;
+    alvo.innerHTML = [
+      secaoPendencias(d),
+      secaoResumo(d),
+      secaoCorrecoes(d),
+      secaoSintoma(d),
+      secaoTriagem(d),
+      secaoGravacao(d, viva),
+      secaoConversa(d, viva),
+      viva ? '' : acoes(id, d),
+    ].join('');
 
     const dialogo = alvo.querySelector('.dialogo');
     if (dialogo && noFim) dialogo.scrollTop = dialogo.scrollHeight;
 
-    // A tag <audio> não manda cabeçalho de autorização, então buscamos os
-    // bytes por fetch e entregamos como blob.
+    // A tag <audio> não manda cabeçalho de autorização: buscamos por fetch.
     const player = alvo.querySelector('audio');
     if (player && !player.src) {
       api(`/calls/${id}/audio`)
@@ -611,14 +679,135 @@ async function abrirDetalhe(el, id, silencioso){
         .then(b => { player.src = URL.createObjectURL(b); })
         .catch(() => {
           player.replaceWith(Object.assign(document.createElement('p'), {
-            className: 'carregando',
-            textContent: 'Gravação ainda não disponível. Tente reabrir em alguns segundos.',
+            className:'carregando',
+            textContent:'Gravação ainda não disponível. Reabra em alguns segundos.',
           }));
         });
     }
+
+    alvo.querySelector('.btn-revisar')?.addEventListener('click', async ev => {
+      ev.stopPropagation();
+      await api(`/calls/${id}/revisar`, { method:'POST' });
+      prontos.delete(id);
+      abrirDetalhe(el, id, true);
+      atualizar();
+    });
   }catch{
-    alvo.innerHTML = `<p class="carregando">Não consegui buscar a conversa agora.</p>`;
+    alvo.innerHTML = `<p class="carregando">Não consegui carregar agora.</p>`;
   }
+}
+
+function secaoPendencias(d){
+  if (!d.pendencias?.length) return '';
+  return `<div class="pendencias">
+    <p class="rotulo" style="color:#6B5210">Precisa de atenção</p>
+    <ul>${d.pendencias.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+  </div>`;
+}
+
+function secaoResumo(d){
+  return d.resumo ? `<p class="resumo">${esc(d.resumo)}</p>` : '';
+}
+
+function secaoCorrecoes(d){
+  const temDiff = d.correcoes?.length;
+  const temNovo = d.novos?.length;
+  if (!temDiff && !temNovo) return '';
+
+  return `<div class="secao">
+    <p class="rotulo">Cadastro a corrigir na OS</p>
+    ${temDiff ? `<table class="diff">
+      <tr><th>Campo</th><th>Como está</th><th>Como deve ficar</th></tr>
+      ${d.correcoes.map(c => `<tr>
+        <td>${esc(c.rotulo)}</td>
+        <td class="antes">${esc(c.antes)}</td>
+        <td class="depois">${esc(c.depois)}</td>
+      </tr>`).join('')}
+    </table>` : ''}
+    ${temNovo ? `<div class="fatos" style="margin-top:${temDiff ? '12px' : '0'}">
+      ${d.novos.map(n => `<div class="fato">
+        <div class="k">${esc(n.rotulo)}</div><div class="v">${esc(n.valor)}</div>
+      </div>`).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
+function secaoSintoma(d){
+  const s = d.sintoma;
+  if (!s) return '';
+  const fatos = [
+    s.inicio && ['Início', s.inicio],
+    s.frequencia && ['Frequência', s.frequencia.replace('_',' ')],
+    s.codigo_erro && ['Código de erro', s.codigo_erro],
+  ].filter(Boolean);
+
+  return `<div class="secao">
+    <p class="rotulo">Sintoma confirmado${s.divergiu ? ' &middot; difere da abertura' : ''}</p>
+    <p style="margin:0 0 11px;font-size:14px;line-height:1.55">${esc(s.confirmado)}</p>
+    ${fatos.length ? `<div class="fatos">${fatos.map(([k,v]) => `
+      <div class="fato"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}
+    </div>` : ''}
+    ${s.fatores?.length ? `<div class="chips" style="margin-top:11px">
+      ${s.fatores.map(f => `<span class="chip">${esc(f)}</span>`).join('')}
+    </div>` : ''}
+    ${s.codigo_erro_descricao ? `<p style="margin:11px 0 0;font-size:13px;color:var(--aco)">${esc(s.codigo_erro_descricao)}</p>` : ''}
+  </div>`;
+}
+
+function secaoTriagem(d){
+  const t = d.triagem;
+  if (!t) return '';
+  return `<div class="secao">
+    <p class="rotulo">Triagem técnica &middot; para o técnico, não para o cliente</p>
+    ${(t.hipoteses ?? []).map(h => `
+      <div class="hipotese">
+        <span class="barra"><i style="width:${Math.round((h.confianca ?? 0)*100)}%"></i></span>
+        <span class="conf">${Math.round((h.confianca ?? 0)*100)}%</span>
+        <span>${esc(h.causa)}</span>
+      </div>`).join('')}
+    ${t.pecas_provaveis?.length ? `<div class="chips" style="margin-top:11px">
+      ${t.pecas_provaveis.map(p => `<span class="chip mono">${esc(p)}</span>`).join('')}
+    </div>` : ''}
+    ${t.boletins?.length ? `<div class="chips" style="margin-top:7px">
+      ${t.boletins.map(b => `<span class="chip mono">${esc(b)}</span>`).join('')}
+    </div>` : ''}
+    ${t.recomendacao_tecnico ? `<p style="margin:11px 0 0;font-size:13.5px;line-height:1.55">${esc(t.recomendacao_tecnico)}</p>` : ''}
+  </div>`;
+}
+
+function secaoGravacao(d, viva){
+  if (viva) return '';
+  return `<div class="secao">
+    <p class="rotulo">Gravação${d.duracao_segundos ? ` &middot; ${mmss(d.duracao_segundos)}` : ''}</p>
+    <audio controls preload="none"></audio>
+  </div>`;
+}
+
+function secaoConversa(d, viva){
+  const falas = d.transcricao ?? [];
+  return `<div class="secao">
+    <p class="rotulo">${viva
+      ? `<span class="aovivo"><span class="ponto"></span>conversa ao vivo</span>`
+      : 'Conversa'}</p>
+    ${falas.length ? `<div class="dialogo">${falas.map(f => `
+      <div class="fala ${f.quem}">
+        <span class="t">${mmss(f.segundo)}</span>
+        <span class="txt">${esc(f.texto)}</span>
+      </div>`).join('')}</div>`
+      : `<p class="carregando">${viva
+          ? 'Os trechos aparecem conforme a ElevenLabs libera.'
+          : 'Sem transcrição para esta chamada.'}</p>`}
+  </div>`;
+}
+
+function acoes(id, d){
+  return `<div class="acoes">
+    <button type="button" class="btn-revisar ${d.revisada ? 'btn-fraco' : ''}">
+      ${d.revisada ? 'Reabrir revisão' : 'Marcar como revisada'}
+    </button>
+    ${d.documentos ? `<span style="font-size:12.5px;color:var(--aco)">
+      Documentos solicitados por ${esc(d.documentos.canal)}</span>` : ''}
+  </div>`;
 }
 
 document.getElementById('lista').addEventListener('click', ev => {

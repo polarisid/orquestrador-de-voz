@@ -23,7 +23,11 @@ createServer(async (req, res) => {
   if (req.url === '/api/triagem/analisar') {
     console.log('>> analisar sintoma:', json.sintoma);
     res.end(JSON.stringify({
-      hipoteses: [{ causa: 'cabo de interligação rompido', confianca: 0.62 }],
+      hipoteses: [
+        { causa: 'cabo de interligacao rompido', confianca: 0.62 },
+        { causa: 'placa da evaporadora', confianca: 0.24 },
+        { causa: 'sensor de temperatura', confianca: 0.14 },
+      ],
       pecas_provaveis: ['DB93-XXXXX'],
       boletins: ['IT-AC-135'],
       recomendacao_tecnico: 'Medir continuidade do cabo antes de trocar placa.',
