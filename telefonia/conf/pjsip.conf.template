@@ -17,6 +17,16 @@ bind=0.0.0.0
 ; external_signaling_address=SEU_IP_PUBLICO
 ; local_net=192.168.0.0/16
 
+; Transporte SEPARADO para a ElevenLabs: TCP em porta alta.
+; Motivo: a ElevenLabs vem de IPs dinamicos, entao essa porta fica aberta
+; para a internet. Deixa-la longe da 5060/UDP tira voce do radar dos
+; scanners SIP, que varrem 5060 o dia inteiro procurando ramal fraco.
+; A doc deles tambem recomenda TCP ou TLS; UDP e experimental.
+[transport-el]
+type=transport
+protocol=tcp
+bind=0.0.0.0:5062
+
 ; ---------- registro no servidor da iFalei ----------
 [ifalei-reg]
 type=registration
@@ -80,7 +90,7 @@ remove_existing=yes
 
 [elevenlabs]
 type=endpoint
-transport=transport-udp
+transport=transport-el
 context=da-elevenlabs
 disallow=all
 allow=ulaw

@@ -47,14 +47,29 @@ Regenere e reinicie:
 
 Devem aparecer `ifalei` e `elevenlabs`.
 
-**Firewall.** O `provisionar-vps.sh` liberou a 5060 só para o IP da iFalei. A
-ElevenLabs vem de outros IPs. Pegue a faixa atual na documentação deles
-(SIP trunking) e libere:
+**Firewall — leia com atenção.** Não existe IP da ElevenLabs para liberar. A
+documentação deles diz que o SIP vem de servidores distribuídos com IPs
+variáveis, e que o RTP usa IPs dinâmicos. Bloco de IP fixo só em conta
+Enterprise.
 
-    ufw allow from <IP_DA_ELEVENLABS> to any port 5060 proto udp
-    ufw allow from <IP_DA_ELEVENLABS> to any port 10000:10200 proto udp
+A saída é separar as duas pernas:
 
-Não abra a 5060 para o mundo. É convite para fraude de tarifação.
+| Perna | Porta | Quem alcança |
+|---|---|---|
+| iFalei | 5060/UDP | só o IP da iFalei |
+| ElevenLabs | 5062/TCP | internet (autenticação digest) |
+| RTP | 10000-10200/UDP | internet |
+
+    ufw allow 5062/tcp
+    ufw allow 10000:10200/udp
+
+Por que isso é seguro o bastante: os scanners SIP varrem 5060/UDP, não 5062/TCP.
+O endpoint `elevenlabs` exige digest com a senha que você criou, e não existe
+endpoint anônimo. O RTP aberto não é vetor de fraude — sem sinalização válida
+não há chamada. E o fail2ban continua ativo.
+
+Ainda assim, ative no painel da iFalei o bloqueio de destinos internacionais e
+o limite de gasto. É a rede de segurança que importa se algo passar.
 
 ## 2. ElevenLabs: importar o número SIP
 
@@ -63,7 +78,9 @@ Painel > Agents > Phone Numbers > **Import a phone number from SIP trunk**.
 | Campo | Valor |
 |---|---|
 | Address | `31.97.86.62` (o IP da sua VPS, sem `sip:`) |
-| Transport | UDP |
+| Transport | **TCP** |
+| Port | 5062 |
+| Media Encryption | Disabled (ou Allowed) |
 | Authentication | Digest |
 | Username | o `EL_SIP_USUARIO` |
 | Password | o `EL_SIP_SENHA` |

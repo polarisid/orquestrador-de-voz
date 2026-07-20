@@ -20,8 +20,16 @@ echo "==> 3/5  Firewall"
 # Regra de ouro: 5060 aberta para o mundo = varredura de bots em minutos
 # e fraude de tarifacao. Libere SOMENTE o IP da iFalei.
 ufw allow 22/tcp
+# Perna iFalei: 5060/UDP so para o IP deles.
 ufw allow from "$IP_IFALEI" to any port 5060 proto udp
-ufw allow from "$IP_IFALEI" to any port 10000:10200 proto udp
+
+# Perna ElevenLabs: IPs dinamicos, nao da para restringir.
+# TCP em porta alta reduz muito a varredura automatizada.
+ufw allow 5062/tcp
+
+# RTP: a doc da ElevenLabs diz que o midia vem de IPs dinamicos.
+# Abrir a faixa e aceitavel — sem sinalizacao valida nao ha fraude de tarifacao.
+ufw allow 10000:10200/udp
 ufw --force enable
 ufw status numbered
 
