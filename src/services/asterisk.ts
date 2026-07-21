@@ -60,3 +60,29 @@ export async function desligarPorTelefone(telefone: string): Promise<number> {
 
   return derrubados;
 }
+
+/**
+ * Rede de segurança para o fim da ligação.
+ *
+ * O agente deveria encerrar sozinho pela tool nativa da ElevenLabs. Quando ele
+ * não encerra — tool desabilitada, modelo esquecendo, cliente mudo — a linha
+ * fica aberta consumindo minuto de graça.
+ *
+ * Damos alguns segundos para a despedida sair e então derrubamos o canal.
+ * Se o agente já tiver encerrado, não há canal e a operação não faz nada.
+ */
+export function desligarDepois(
+  telefone: string,
+  log: { info: Function; warn: Function },
+) {
+  if (!ariConfigurado()) return;
+
+  const segundos = Number(process.env.SEGUNDOS_ATE_DESLIGAR ?? 12);
+  if (segundos <= 0) return;
+
+  setTimeout(() => {
+    desligarPorTelefone(telefone)
+      .then((n) => { if (n) log.info({ telefone, canais: n }, 'linha encerrada pela rede de seguranca'); })
+      .catch((e) => log.warn({ e: String(e) }, 'falha ao encerrar a linha'));
+  }, segundos * 1000).unref();
+}

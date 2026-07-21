@@ -20,7 +20,7 @@ export async function dispararChamada(
   fluxoId: string,
   d: Record<string, string>,
   roteiroAvulso?: string,
-): Promise<string> {
+): Promise<{ id: string; providerCallId: string }> {
   const prompt = roteiroAvulso?.trim() || (await roteiroEmVigor(fluxoId, d));
 
   const chamada = await voz.originar({
@@ -51,7 +51,7 @@ export async function dispararChamada(
     .select('id')
     .single();
 
-  return data?.id;
+  return { id: data?.id, providerCallId: chamada.id };
 }
 
 export async function rotasDisparo(app: FastifyInstance) {
@@ -91,8 +91,8 @@ export async function rotasDisparo(app: FastifyInstance) {
       return reply.code(202).send({ status: 'agendada_proxima_janela' });
     }
 
-    const chamadaId = await dispararChamada(fluxoId, d, req.body.roteiro);
-    return { chamada_id: chamadaId };
+    const r = await dispararChamada(fluxoId, d, req.body.roteiro);
+    return { chamada_id: r.id, provider_call_id: r.providerCallId };
   });
 }
 

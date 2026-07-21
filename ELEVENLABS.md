@@ -483,3 +483,48 @@ O que falta:
 
 O item 4 é decisão de operação, não técnica — e é o que define se isso ajuda ou
 atrapalha seu atendimento humano.
+
+
+---
+
+## O agente não desligava a ligação
+
+Causa: a tool nativa **End Call** só vem habilitada por padrão em agentes
+criados pelo painel. O nosso foi criado por API, então nasceu sem ela — o
+agente terminava de falar e ficava na linha até o cliente desligar ou o
+timeout estourar. Minuto pago por silêncio.
+
+A correção tem três camadas:
+
+**1. Habilitar a tool no agente.** Ela vai em
+`conversation_config.agent.prompt.built_in_tools`, separada das webhook tools:
+
+    built_in_tools: { end_call: {} }
+
+Rode `npm run atualizar-agente` — o script já manda isso.
+
+**2. Instruir no roteiro.** Ter a tool não basta; o modelo precisa saber quando
+usar. Todos os fluxos agora terminam com a ordem explícita de encerrar depois da
+despedida.
+
+**3. Rede de segurança pelo Asterisk.** Depois que `encerrar_triagem` é chamada,
+o orquestrador agenda a derrubada do canal em `SEGUNDOS_ATE_DESLIGAR` (12 por
+padrão). Se o agente já encerrou, não há canal e nada acontece. Se ele esqueceu,
+a linha cai mesmo assim.
+
+Precisa do ARI configurado. Sem ele a camada 3 fica inerte e você depende só
+das duas primeiras.
+
+    SEGUNDOS_ATE_DESLIGAR=12
+
+Zero desliga o recurso.
+
+### Enquanto isso: transferir_humano tem o mesmo problema
+
+`transferir_humano` hoje só registra no banco — o transbordo real precisa da
+system tool `transfer_to_number` configurada no agente, apontando para o ramal
+de atendimento. Sem ela, o cliente irritado pede atendente, o agente diz "vou
+transferir", e nada acontece. É o pior desfecho possível.
+
+Configure no painel da ElevenLabs, em Tools do agente, antes de usar em
+produção.

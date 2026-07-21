@@ -93,7 +93,7 @@ export function lerTabela(texto: string, fluxo: string) {
 // ---------------------------------------------------------------------------
 
 async function rodada(
-  disparar: (fluxo: string, dados: Record<string, string>) => Promise<string>,
+  disparar: (fluxo: string, dados: Record<string, string>) => Promise<{ id: string }>,
   log: { info: Function; warn: Function },
 ) {
   const { data: filaBruta } = await supabase.from('fila').select('*');
@@ -115,7 +115,7 @@ async function rodada(
 
   for (const item of pendentes.slice(0, vagas)) {
     try {
-      const chamadaId = await disparar(item.fluxo, item.dados);
+      const { id: chamadaId } = await disparar(item.fluxo, item.dados);
       await supabase.from('fila').update({
         status: 'discada',
         chamada_id: chamadaId,
@@ -173,7 +173,7 @@ async function reprocessar(log: { info: Function }) {
 }
 
 export function iniciarFila(
-  disparar: (fluxo: string, dados: Record<string, string>) => Promise<string>,
+  disparar: (fluxo: string, dados: Record<string, string>) => Promise<{ id: string }>,
   log: { info: Function; warn: Function },
 ) {
   setInterval(() => {

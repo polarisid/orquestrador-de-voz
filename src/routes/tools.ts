@@ -3,6 +3,7 @@ import { supabase } from '../services/supabase.js';
 import { triagem } from '../services/triagem.js';
 import { mensageria } from '../services/mensageria.js';
 import { voz } from '../services/voice-provider.js';
+import { desligarDepois } from '../services/asterisk.js';
 import type { ToolName } from '../agent/tools.js';
 
 /**
@@ -19,7 +20,7 @@ export async function executarTool(
 ): Promise<{ fala: string } | null> {
   const { data: chamada } = await supabase
     .from('chamadas_triagem')
-    .select('id, os_numero, produto_modelo, produto_linha, status')
+    .select('id, os_numero, produto_modelo, produto_linha, status, telefone')
     .eq('provider_call_id', providerCallId)
     .single();
 
@@ -183,6 +184,8 @@ export async function executarTool(
         .eq('id', chamada.id);
 
       await voz.encerrar(providerCallId);
+      // O agente deve encerrar sozinho; isto é o seguro contra ele não encerrar.
+      desligarDepois(chamada.telefone, console);
       return { fala: 'Triagem encerrada.' };
     }
 

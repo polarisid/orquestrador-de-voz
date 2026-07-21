@@ -261,7 +261,8 @@ Pergunte se prefere receber o link por WhatsApp ou SMS. Confirme o numero antes 
 Chame enviar_link_documentos. Diga que o envio da documentacao e o que libera o agendamento da visita.
 
 ## 5. Encerramento
-Resuma em uma frase o que foi registrado, informe que a visita e agendada apos o recebimento dos documentos, agradeca e chame encerrar_triagem.
+Resuma em uma frase o que foi registrado, informe que a visita e agendada apos o recebimento dos documentos e agradeca.
+Chame encerrar_triagem. Depois de se despedir, ENCERRE A LIGACAO usando a ferramenta de encerrar chamada. Nao fique na linha esperando o cliente desligar.
 
 # Limites
 Nunca prometa data, horario ou valor.
@@ -293,6 +294,10 @@ const agente = await api('/convai/agents/create', {
         llm: 'gemini-2.0-flash',
         temperature: 0.3,
         tool_ids: ids,
+        // Sem isto o agente termina de falar e FICA NA LINHA. A tool nativa
+        // de encerrar so vem por padrao em agente criado pelo painel;
+        // criado por API, precisa ser declarada aqui.
+        built_in_tools: { end_call: {} },
       },
       first_message: PRIMEIRA_FALA,
     },

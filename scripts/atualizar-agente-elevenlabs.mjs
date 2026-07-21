@@ -83,7 +83,8 @@ Pergunte se prefere receber o link por WhatsApp ou SMS. Confirme o numero antes 
 Chame enviar_link_documentos. Diga que o envio da documentacao e o que libera o agendamento da visita.
 
 ## 5. Encerramento
-Resuma em uma frase o que foi registrado, informe que a visita e agendada apos o recebimento dos documentos, agradeca e chame encerrar_triagem.
+Resuma em uma frase o que foi registrado, informe que a visita e agendada apos o recebimento dos documentos e agradeca.
+Chame encerrar_triagem. Depois de se despedir, ENCERRE A LIGACAO usando a ferramenta de encerrar chamada. Nao fique na linha esperando o cliente desligar.
 
 # Limites
 Nunca prometa data, horario ou valor.
@@ -98,7 +99,11 @@ const corpo = {
     agent: {
       language: 'pt',
       first_message: PRIMEIRA_FALA,
-      prompt: { prompt: PROMPT },
+      prompt: {
+        prompt: PROMPT,
+        // Garante a tool nativa de encerrar, que nao vem em agente criado por API.
+        built_in_tools: { end_call: {} },
+      },
     },
     asr: { language: 'pt' },
     tts: {
