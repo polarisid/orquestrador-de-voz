@@ -135,6 +135,34 @@ export const TOOLS = [
     },
   },
   {
+    name: 'registrar_agendamento',
+    description:
+      'Fluxo de confirmação de visita: registra se o cliente confirmou a data marcada e, se não, o que ele prefere. Chame ao final da etapa 2.',
+    parameters: {
+      type: 'object',
+      properties: {
+        confirmou: {
+          type: 'boolean',
+          description: 'true se o cliente confirmou que estará no local na data marcada',
+        },
+        nova_preferencia: {
+          type: 'string',
+          description:
+            'Quando o cliente prefere, se não confirmou. Ex: "sábado de manhã", "semana que vem", "só depois do dia 10"',
+        },
+        motivo: {
+          type: 'string',
+          description: 'Por que não pode na data marcada. Ex: "vai viajar", "trabalha o dia todo"',
+        },
+        endereco_confirmado: {
+          type: 'string',
+          description: 'Endereço lido de volta e confirmado pelo cliente, com correções se houver',
+        },
+      },
+      required: ['confirmou'],
+    },
+  },
+  {
     name: 'transferir_humano',
     description:
       'Transfere a ligação para um atendente. Use quando o cliente pedir, demonstrar irritação, ou após duas falhas seguidas de entendimento.',

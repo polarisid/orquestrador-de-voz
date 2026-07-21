@@ -216,6 +216,8 @@ table.diff tr:last-child td,table.tab tr:last-child td{border-bottom:0}
 .fato{border:1px solid var(--linha);border-radius:var(--r);padding:9px 11px}
 .fato .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--aco)}
 .fato .v{font-size:13.5px;margin-top:3px}
+.fato.alerta{border-color:var(--espera);background:var(--espera-claro)}
+.fato.alerta .v{color:#6B5210;font-weight:600}
 
 .hipotese{display:flex;align-items:center;gap:11px;margin-bottom:7px;font-size:13.5px}
 .barra{height:5px;background:var(--linha);border-radius:3px;width:84px;flex:none;overflow:hidden}
@@ -346,6 +348,7 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
     <div class="acoes-topo">
       <button class="btn btn-forte" id="btn-nova">Nova ligação</button>
       <button class="btn" id="btn-config">Roteiros</button>
+      <button class="btn" id="btn-ajustes">Ajustes</button>
       <button class="btn" id="btn-diag">Diagnóstico</button>
       <span class="usuario" id="usuario"></span>
       <button class="btn" id="sair" hidden>Sair</button>
@@ -433,6 +436,33 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
       <button class="btn" id="btn-restaurar">Voltar ao original</button>
       <span class="estado" id="estado-roteiro"></span>
     </div>
+  </div>
+</aside>
+
+<aside class="gaveta" id="gaveta-ajustes" aria-hidden="true">
+  <div class="gaveta-topo">
+    <h2>Ajustes</h2>
+    <button class="btn" style="margin-left:auto" data-fechar>Fechar</button>
+  </div>
+  <div class="gaveta-corpo">
+    <p class="rotulo">Transbordo para humano</p>
+    <p class="explica">Para onde o agente transfere quando o cliente pede um atendente. Salvar aplica direto no agente — não precisa refazer o deploy.</p>
+
+    <label><span>Destino</span>
+      <input id="transbordo" placeholder="1001 ou +557933000000" autocomplete="off">
+      <small class="dica">Ramal de 3 a 5 dígitos, número em E.164, ou um SIP URI completo. Deixe vazio para desligar a transferência.</small></label>
+
+    <div class="barra-acoes">
+      <button class="btn btn-forte" id="btn-salvar-transbordo">Salvar e aplicar</button>
+      <span class="estado" id="estado-transbordo"></span>
+    </div>
+
+    <p class="explica" style="margin-top:26px;padding-top:18px;border-top:1px solid var(--linha)">
+      <strong>Um DID é mais robusto que um ramal.</strong> A central distribui para quem estiver livre; o ramal amarra o transbordo a uma pessoa, e quando ela sai de férias você descobre pelo cliente.
+    </p>
+    <p class="explica">
+      <strong>Transferência consome um segundo canal.</strong> Com um único canal no tronco, ela pode falhar por falta de linha — justamente com o cliente que já estava irritado.
+    </p>
   </div>
 </aside>
 
@@ -758,7 +788,7 @@ async function abrirDetalhe(el, id, silencioso){
     const noFim = !antes || antes.scrollTop + antes.clientHeight >= antes.scrollHeight - 24;
 
     alvo.innerHTML = [
-      secPendencias(d), secResumo(d), secCorrecoes(d), secSintoma(d),
+      secPendencias(d), secResumo(d), secResultado(d), secCorrecoes(d), secSintoma(d),
       secTriagem(d), secGravacao(d, viva), secConversa(d, viva),
       viva ? acoesAoVivo() : acoesFinal(d),
     ].join('');
@@ -787,6 +817,13 @@ const secPendencias = d => d.pendencias?.length ? `<div class="pendencias">
   <ul>${d.pendencias.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>` : '';
 
 const secResumo = d => d.resumo ? `<p class="resumo">${esc(d.resumo)}</p>` : '';
+
+/** Campos que só existem em alguns fluxos: visita confirmada, quem retira... */
+const secResultado = d => !d.resultado?.length ? '' : `<div class="bloco">
+  <p class="rotulo">Resultado da ligação</p>
+  <div class="fatos">${d.resultado.map(r => `<div class="fato${r.alerta ? ' alerta' : ''}">
+    <div class="k">${esc(r.rotulo)}</div><div class="v">${esc(r.valor)}</div></div>`).join('')}</div>
+</div>`;
 
 function secCorrecoes(d){
   const diff = d.correcoes?.length, novo = d.novos?.length;
@@ -1088,6 +1125,49 @@ document.getElementById('btn-salvar').addEventListener('click', async ev => {
 });
 document.getElementById('btn-restaurar').addEventListener('click', () => {
   campoRoteiro.value = original; editado = true; marcarEstado();
+});
+
+/* ============================= ajustes ============================= */
+const estadoTransbordo = (txt, erro) => {
+  const el = document.getElementById('estado-transbordo');
+  el.textContent = txt;
+  el.className = 'estado' + (erro ? ' alerta' : '');
+};
+
+async function carregarAjustes(){
+  try{
+    const d = await (await api('/configuracao')).json();
+    document.getElementById('transbordo').value = d.transbordo ?? '';
+    if (!d.agente_configurado) estadoTransbordo('agente da ElevenLabs não configurado', true);
+    else if (d.transbordo_aplicado_em)
+      estadoTransbordo(`aplicado em ${new Date(d.transbordo_aplicado_em).toLocaleString('pt-BR')}`);
+    else estadoTransbordo(d.transbordo ? 'salvo, mas ainda não aplicado no agente' : 'transferência desligada');
+  }catch{ estadoTransbordo('não consegui carregar', true); }
+}
+
+document.getElementById('btn-ajustes').addEventListener('click', () => {
+  abrirGaveta('gaveta-ajustes');
+  carregarAjustes();
+});
+
+document.getElementById('btn-salvar-transbordo').addEventListener('click', async ev => {
+  const b = ev.currentTarget;
+  b.disabled = true; b.textContent = 'Aplicando…';
+  try{
+    const r = await api('/configuracao/transbordo', {
+      method:'PUT', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ transbordo: document.getElementById('transbordo').value }),
+    });
+    const d = await r.json();
+    if (!r.ok) estadoTransbordo(d.mensagem ?? d.erro, true);
+    else {
+      document.getElementById('transbordo').value = d.transbordo ?? '';
+      estadoTransbordo(d.transbordo
+        ? `aplicado em ${new Date(d.aplicado_em).toLocaleString('pt-BR')}`
+        : 'transferência desligada');
+    }
+  }catch{ estadoTransbordo('sem resposta do servidor', true); }
+  b.disabled = false; b.textContent = 'Salvar e aplicar';
 });
 
 /* ============================= fila ============================= */

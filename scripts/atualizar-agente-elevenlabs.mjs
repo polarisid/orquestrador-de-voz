@@ -104,27 +104,42 @@ const corpo = {
         prompt: PROMPT,
         // Garante a tool nativa de encerrar, que nao vem em agente criado por API.
         built_in_tools: {
-          end_call: {},
-        // Transbordo para humano. Sem isto o agente diz "vou transferir"
-        // e nao acontece nada — o pior desfecho possivel, porque quebra
-        // uma promessa explicita feita ao cliente.
-        ...(TRANSBORDO
-          ? {
-              transfer_to_number: {
-                transfers: [
-                  {
-                    transfer_destination: TRANSBORDO.startsWith('sip:')
-                      ? { type: 'sip_uri', sip_uri: TRANSBORDO }
-                      : { type: 'phone', phone_number: TRANSBORDO },
-                    condition:
-                      'O cliente pediu para falar com uma pessoa, demonstrou irritacao, ' +
-                      'perguntou valores, ou houve duas falhas seguidas de entendimento.',
-                    transfer_type: 'conference',
+          // System tool exige o objeto completo — nao basta {}. O campo
+          // params.system_tool_type e o que diz ao ElevenLabs qual tool e.
+          end_call: {
+            type: 'system',
+            name: 'end_call',
+            description:
+              'Encerra a ligacao depois da despedida, quando a conversa chegou ao fim.',
+            params: { system_tool_type: 'end_call' },
+          },
+          // Transbordo para humano. Sem isto o agente diz "vou transferir"
+          // e nao acontece nada — o pior desfecho possivel, porque quebra
+          // uma promessa explicita feita ao cliente.
+          ...(TRANSBORDO
+            ? {
+                transfer_to_number: {
+                  type: 'system',
+                  name: 'transfer_to_number',
+                  description:
+                    'Transfere a ligacao para o atendimento humano da Smart Center.',
+                  params: {
+                    system_tool_type: 'transfer_to_number',
+                    transfers: [
+                      {
+                        transfer_destination: TRANSBORDO.startsWith('sip:')
+                          ? { type: 'sip_uri', sip_uri: TRANSBORDO }
+                          : { type: 'phone', phone_number: TRANSBORDO },
+                        condition:
+                          'O cliente pediu para falar com uma pessoa, demonstrou irritacao, ' +
+                          'perguntou valores, ou houve duas falhas seguidas de entendimento.',
+                        transfer_type: 'conference',
+                      },
+                    ],
                   },
-                ],
-              },
-            }
-          : {}),
+                },
+              }
+            : {}),
         },
       },
     },
@@ -136,13 +151,27 @@ const corpo = {
   },
 };
 
-const r = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${AGENT}`, {
-  method: 'PATCH',
-  headers: { 'content-type': 'application/json', 'xi-api-key': KEY },
-  body: JSON.stringify(corpo),
-});
+async function enviar(body) {
+  const r = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${AGENT}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', 'xi-api-key': KEY },
+    body: JSON.stringify(body),
+  });
+  return { ok: r.ok, status: r.status, txt: await r.text() };
+}
 
-const txt = await r.text();
+let { ok, status, txt } = await enviar(corpo);
+
+// O transbordo e o pedaco com schema mais instavel. Se ele derrubar o PATCH,
+// tenta de novo sem ele: melhor ter o encerramento funcionando do que nada.
+if (!ok && TRANSBORDO) {
+  console.log('Falhou com o transbordo; tentando so com o encerramento...\n');
+  delete corpo.conversation_config.agent.prompt.built_in_tools.transfer_to_number;
+  ({ ok, status, txt } = await enviar(corpo));
+  if (ok) console.log('AVISO: transbordo NAO configurado. Configure em Tools no painel.\n');
+}
+
+const r = { ok, status };
 if (!r.ok) {
   console.error(`Falhou: ${r.status}`);
   try {

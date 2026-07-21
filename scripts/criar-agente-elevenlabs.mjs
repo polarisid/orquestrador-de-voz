@@ -189,6 +189,18 @@ const TOOLS = [
   ),
 
   tool(
+    'registrar_agendamento',
+    'Fluxo de confirmacao de visita: registra se o cliente confirmou a data marcada e, se nao, o que ele prefere.',
+    {
+      confirmou: { type: 'boolean', description: 'true se confirmou que estara no local na data marcada' },
+      nova_preferencia: S('Quando prefere, se nao confirmou. Ex: sabado de manha, semana que vem'),
+      motivo: S('Por que nao pode na data marcada'),
+      endereco_confirmado: S('Endereco lido de volta e confirmado, com correcoes se houver'),
+    },
+    ['confirmou'],
+  ),
+
+  tool(
     'transferir_humano',
     'Registra que a ligacao precisa de atendente humano. Use quando o cliente pedir, demonstrar irritacao, ou apos duas falhas seguidas de entendimento.',
     {
@@ -300,27 +312,42 @@ const agente = await api('/convai/agents/create', {
         // de encerrar so vem por padrao em agente criado pelo painel;
         // criado por API, precisa ser declarada aqui.
         built_in_tools: {
-          end_call: {},
-        // Transbordo para humano. Sem isto o agente diz "vou transferir"
-        // e nao acontece nada — o pior desfecho possivel, porque quebra
-        // uma promessa explicita feita ao cliente.
-        ...(TRANSBORDO
-          ? {
-              transfer_to_number: {
-                transfers: [
-                  {
-                    transfer_destination: TRANSBORDO.startsWith('sip:')
-                      ? { type: 'sip_uri', sip_uri: TRANSBORDO }
-                      : { type: 'phone', phone_number: TRANSBORDO },
-                    condition:
-                      'O cliente pediu para falar com uma pessoa, demonstrou irritacao, ' +
-                      'perguntou valores, ou houve duas falhas seguidas de entendimento.',
-                    transfer_type: 'conference',
+          // System tool exige o objeto completo — nao basta {}. O campo
+          // params.system_tool_type e o que diz ao ElevenLabs qual tool e.
+          end_call: {
+            type: 'system',
+            name: 'end_call',
+            description:
+              'Encerra a ligacao depois da despedida, quando a conversa chegou ao fim.',
+            params: { system_tool_type: 'end_call' },
+          },
+          // Transbordo para humano. Sem isto o agente diz "vou transferir"
+          // e nao acontece nada — o pior desfecho possivel, porque quebra
+          // uma promessa explicita feita ao cliente.
+          ...(TRANSBORDO
+            ? {
+                transfer_to_number: {
+                  type: 'system',
+                  name: 'transfer_to_number',
+                  description:
+                    'Transfere a ligacao para o atendimento humano da Smart Center.',
+                  params: {
+                    system_tool_type: 'transfer_to_number',
+                    transfers: [
+                      {
+                        transfer_destination: TRANSBORDO.startsWith('sip:')
+                          ? { type: 'sip_uri', sip_uri: TRANSBORDO }
+                          : { type: 'phone', phone_number: TRANSBORDO },
+                        condition:
+                          'O cliente pediu para falar com uma pessoa, demonstrou irritacao, ' +
+                          'perguntou valores, ou houve duas falhas seguidas de entendimento.',
+                        transfer_type: 'conference',
+                      },
+                    ],
                   },
-                ],
-              },
-            }
-          : {}),
+                },
+              }
+            : {}),
         },
       },
       first_message: PRIMEIRA_FALA,

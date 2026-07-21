@@ -587,3 +587,37 @@ precisa de tronco com pelo menos dois canais simultâneos. Vale perguntar o pre�
 No servidor, com o log SIP ligado, você vê um `REFER` saindo da ElevenLabs ou um
 segundo `INVITE` para o destino. Se não vier nenhum dos dois, a system tool não
 está configurada no agente.
+
+
+### Transbordo configurável pelo painel
+
+Botão **Ajustes**, no topo. O destino fica no banco, não em variável de
+ambiente: trocar o ramal é decisão de operação, e operação não pode depender de
+redeploy.
+
+Aceita três formatos:
+
+| Você digita | Vira |
+|---|---|
+| `1001` | `sip:1001@sip.ifalei.com.br` |
+| `+557933000000` | número em E.164 |
+| `sip:fila@pbx.exemplo` | usado como está |
+
+Campo vazio desliga a transferência — o agente perde a system tool e para de
+prometer o que não pode cumprir.
+
+**Salvar e aplicar** grava aqui e faz o PATCH no agente da ElevenLabs na hora.
+Se o PATCH falhar, o painel avisa em vez de fingir sucesso: salvo aqui mas não
+aplicado lá é exatamente o estado que faz você achar que está transferindo
+quando não está.
+
+### Por que não dá para escolher o ramal por ligação
+
+O destino da transferência vive na configuração do agente, não na chamada. Cada
+destino diferente exigiria um agente diferente na ElevenLabs.
+
+Se um dia isso for necessário — transbordo por linha de produto, por exemplo —
+o caminho é apontar a transferência para um ramal-pivô no seu Asterisk e deixar
+o dialplan decidir o destino final consultando a API do orquestrador com
+`CURL()`. Funciona, mas só vale a complexidade se houver mais de um destino de
+verdade.

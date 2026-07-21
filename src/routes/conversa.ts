@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { supabase } from '../services/supabase.js';
 import { voz } from '../services/voice-provider.js';
 import { normalizar } from '../services/transcricao.js';
+import { FLUXOS, fluxoPadrao } from '../agent/fluxos.js';
 import { ariConfigurado, desligarPorTelefone } from '../services/asterisk.js';
 
 /** Status em que a chamada acabou de vez — só aí o cache vale. */
@@ -37,7 +38,9 @@ export async function rotasConversa(app: FastifyInstance) {
     let resumo = c.resumo ?? null;
     let duracao = c.duracao_segundos ?? 0;
 
-    if (!encerrada || !c.transcricao) {
+    // Array vazio é valor válido em JS mas não é transcrição. Sem esta
+    // checagem, uma busca feita cedo demais congela o "sem transcrição".
+    if (!encerrada || !(c.transcricao?.length > 0)) {
       try {
         const conv: any = await voz.conversa(c.provider_call_id);
         transcricao = normalizar(conv.transcript);
@@ -78,14 +81,14 @@ export async function rotasConversa(app: FastifyInstance) {
       c.restricao_horario && { rotulo: 'Restrição de horário', valor: c.restricao_horario },
     ].filter(Boolean);
 
-    const pendencias: string[] = [];
-    if (encerrada) {
-      if (!c.cadastro_nome) pendencias.push('Cadastro não foi confirmado na ligação');
-      if (!c.sintoma_confirmado) pendencias.push('Sintoma não foi confirmado');
-      if (!c.doc_enviado_em) pendencias.push('Link de documentos não foi enviado');
-      if (c.status === 'transferida') pendencias.push('Cliente pediu atendente humano');
-      if (c.divergiu_abertura) pendencias.push('Sintoma real difere do informado na abertura da OS');
-    }
+    // Cada fluxo sabe o que é pendência no seu contexto.
+    const fluxo = FLUXOS[c.fluxo ?? fluxoPadrao] ?? FLUXOS[fluxoPadrao];
+    const pendencias = encerrada
+      ? [
+          ...(fluxo.pendencias?.(c) ?? []),
+          ...(c.status === 'transferida' ? ['Cliente pediu atendente humano'] : []),
+        ]
+      : [];
 
     return {
       encerrada,
@@ -112,6 +115,24 @@ export async function rotasConversa(app: FastifyInstance) {
         ? { canal: c.doc_canal, enviado_em: c.doc_enviado_em }
         : null,
       observacao: c.observacao ?? null,
+
+      // Campos que só existem em alguns fluxos. O painel mostra o que vier.
+      resultado: [
+        c.agendamento_confirmado != null && {
+          rotulo: 'Visita',
+          valor: c.agendamento_confirmado ? 'confirmada' : 'NÃO confirmada',
+          alerta: !c.agendamento_confirmado,
+        },
+        c.agendamento_nova_preferencia && {
+          rotulo: 'Prefere', valor: c.agendamento_nova_preferencia, alerta: true,
+        },
+        c.agendamento_motivo && { rotulo: 'Motivo', valor: c.agendamento_motivo },
+        c.retirada_quem && { rotulo: 'Quem retira', valor: c.retirada_quem },
+        c.retirada_titular === false && {
+          rotulo: 'Atenção', valor: 'não é o titular — exigir documento', alerta: true,
+        },
+        c.retirada_previsao && { rotulo: 'Previsão', valor: c.retirada_previsao },
+      ].filter(Boolean),
     };
   });
 

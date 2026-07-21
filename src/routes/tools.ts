@@ -163,6 +163,25 @@ export async function executarTool(
       };
     }
 
+    case 'registrar_agendamento': {
+      await supabase
+        .from('chamadas_triagem')
+        .update({
+          agendamento_confirmado: Boolean(args.confirmou),
+          agendamento_nova_preferencia: args.nova_preferencia ?? null,
+          agendamento_motivo: args.motivo ?? null,
+          ...(args.endereco_confirmado ? { cadastro_endereco: args.endereco_confirmado } : {}),
+          etapa: 'confirmado',
+        })
+        .eq('id', chamada.id);
+
+      return {
+        fala: args.confirmou
+          ? 'Visita confirmada.'
+          : 'Anotado. Diga que o atendimento entra em contato para remarcar — não prometa data.',
+      };
+    }
+
     case 'transferir_humano': {
       await supabase
         .from('chamadas_triagem')

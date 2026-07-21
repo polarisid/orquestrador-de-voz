@@ -48,6 +48,11 @@ create table if not exists voz.chamadas_triagem (
   roteiro_customizado boolean default false,
   triagem_analise jsonb,
 
+  -- confirmação de visita
+  agendamento_confirmado boolean,
+  agendamento_nova_preferencia text,
+  agendamento_motivo text,
+
   -- retirada
   retirada_quem text,
   retirada_titular boolean,
@@ -100,6 +105,16 @@ create index on voz.uploads_os (token);
 alter table voz.chamadas_triagem enable row level security;
 alter table voz.uploads_os enable row level security;
 
+
+-- Configuração editável pelo painel (transbordo, e o que vier depois).
+create table if not exists voz.config (
+  id uuid primary key default gen_random_uuid(),
+  chave text unique not null,
+  valor text,
+  atualizado_em timestamptz default now()
+);
+
+alter table voz.config enable row level security;
 
 -- Fila de discagem.
 -- status: pendente | discada | concluida | sem_contato | falhou | cancelada | arquivada

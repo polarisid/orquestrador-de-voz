@@ -38,6 +38,17 @@ createServer(async (req, res) => {
     return;
   }
 
+  // PATCH /convai/agents/<id> — atualizacao do agente
+  if (req.method === 'PATCH' && /\/convai\/agents\//.test(url)) {
+    const t = json.conversation_config?.agent?.prompt?.built_in_tools ?? {};
+    console.log('\n=== AGENTE ATUALIZADO ===');
+    console.log('system tools:', Object.keys(t).join(', ') || '(nenhuma)');
+    const tr = t.transfer_to_number?.params?.transfers?.[0]?.transfer_destination;
+    if (tr) console.log('transbordo:', JSON.stringify(tr));
+    res.end(JSON.stringify({ agent_id: 'mock_agent' }));
+    return;
+  }
+
   // GET /convai/conversations/<id> — transcricao falsa
   if (req.method === 'GET' && /\/convai\/conversations\/[^/]+$/.test(url)) {
     res.end(JSON.stringify({

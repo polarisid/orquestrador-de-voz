@@ -39,8 +39,10 @@ async function rodada(log: { warn: (o: unknown, m?: string) => void }) {
 
     try {
       const conv: any = await voz.conversa(c.provider_call_id);
-      const acabou = ['done', 'failed', 'processing'].includes(conv.status);
-      if (!acabou) continue;
+
+      // 'processing' significa que a ElevenLabs ainda está montando a
+      // transcrição. Finalizar aqui grava vazio e o painel nunca mais busca.
+      if (!['done', 'failed'].includes(conv.status)) continue;
 
       const duracao = conv.metadata?.call_duration_secs ?? 0;
       const motivo = conv.metadata?.termination_reason ?? '';
@@ -53,7 +55,11 @@ async function rodada(log: { warn: (o: unknown, m?: string) => void }) {
         .update({
           status: semContato ? 'sem_contato' : c.status === 'discando' ? 'cliente_desligou' : 'concluida',
           duracao_segundos: duracao,
-          transcricao: normalizar(conv.transcript),
+          // Só sobrescreve se veio conteúdo: transcrição vazia é pior que
+          // nenhuma, porque o cache impede a próxima tentativa.
+          ...(normalizar(conv.transcript).length
+            ? { transcricao: normalizar(conv.transcript) }
+            : {}),
           resumo: conv.analysis?.transcript_summary ?? null,
           ultimo_resultado: motivo || null,
           finalizada_em: new Date().toISOString(),

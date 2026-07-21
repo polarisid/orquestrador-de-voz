@@ -27,6 +27,12 @@ export interface Fluxo {
   etapas: { id: string; rotulo: string }[];
   campos: Campo[];
   montarPrompt(d: Record<string, string>): string;
+  /**
+   * O que ficou faltando nesta chamada. Cada fluxo sabe o que importa no seu
+   * contexto — "sintoma não confirmado" não faz sentido numa confirmação de
+   * visita, e avisar isso lá só treina o operador a ignorar o aviso.
+   */
+  pendencias?(c: Record<string, any>): string[];
 }
 
 const LINHAS: Campo['opcoes'] = [
@@ -80,6 +86,13 @@ export const TRIAGEM: Fluxo = {
     },
     { nome: 'sintoma_declarado', rotulo: 'Sintoma informado na abertura', tipo: 'area', obrigatorio: true, exemplo: 'não gela' },
   ],
+
+  pendencias: (c) => [
+    !c.cadastro_nome && 'Cadastro não foi confirmado na ligação',
+    !c.sintoma_confirmado && 'Sintoma não foi confirmado',
+    !c.doc_enviado_em && 'Link de documentos não foi enviado',
+    c.divergiu_abertura && 'Sintoma real difere do informado na abertura da OS',
+  ].filter(Boolean) as string[],
 
   montarPrompt: (d) => `${IDIOMA}
 
@@ -174,6 +187,12 @@ export const RETIRADA: Fluxo = {
     { nome: 'prazo_guarda', rotulo: 'Prazo de guarda', tipo: 'texto', obrigatorio: true, exemplo: '30 dias' },
   ],
 
+  pendencias: (c) => [
+    !c.retirada_quem && 'Não ficou definido quem vai retirar',
+    !c.retirada_previsao && 'Cliente não deu previsão de quando vem',
+    c.retirada_titular === false && 'Quem retira não é o titular — exigir documento com foto',
+  ].filter(Boolean) as string[],
+
   montarPrompt: (d) => `${IDIOMA}
 
 Você é o assistente da Smart Center Aracaju, assistência técnica autorizada Samsung. Você está LIGANDO para avisar que o produto do cliente está pronto para retirada.
@@ -256,6 +275,13 @@ export const AGENDAMENTO: Fluxo = {
     ] },
     { nome: 'produto_linha', rotulo: 'Linha', tipo: 'select', obrigatorio: true, opcoes: LINHAS },
   ],
+  pendencias: (c) => [
+    c.agendamento_confirmado == null && 'Não ficou claro se o cliente confirmou a visita',
+    c.agendamento_confirmado === false && 'VISITA NÃO CONFIRMADA — remarcar antes de mandar o técnico',
+    c.agendamento_confirmado === false && !c.agendamento_nova_preferencia
+      && 'Cliente não indicou nova data preferida',
+  ].filter(Boolean) as string[],
+
   montarPrompt: (d) => `${IDIOMA}
 
 Você é o assistente da Smart Center Aracaju, assistência técnica autorizada Samsung. Você está LIGANDO para confirmar uma visita técnica já agendada.
@@ -277,8 +303,12 @@ Se não for o titular e ele não puder atender, encerre com status nao_e_o_titul
 
 ## 2. Confirmação
 Diga a data e o turno e pergunte se o cliente estará no local.
-Se confirmar, chame confirmar_cadastro com o endereço lido de volta — é a chance de pegar endereço errado antes do técnico sair.
-Se NÃO puder, pergunte que dia seria melhor e chame registrar_retirada usando o campo previsao para a nova preferência. Deixe claro que o reagendamento será confirmado pelo atendimento.
+Leia o endereço de volta e peça confirmação — é a chance de pegar endereço errado antes do técnico sair.
+
+Se ele CONFIRMAR: chame registrar_agendamento com confirmou true e o endereço confirmado.
+
+Se ele NÃO puder: não insista nem tente convencer. Pergunte que dia e turno seriam melhores, e por que não dá na data marcada. Chame registrar_agendamento com confirmou false, a nova preferência e o motivo.
+Deixe claro que o reagendamento ainda será confirmado pelo atendimento — você não marca data.
 
 ## 3. Lembrete
 Diga que alguém maior de idade precisa estar no local, e que o aparelho deve estar acessível e desligado da tomada.
@@ -314,6 +344,10 @@ export const DOCUMENTACAO: Fluxo = {
     ] },
     { nome: 'dias_parado', rotulo: 'Dias parado', tipo: 'texto', obrigatorio: true, exemplo: '5' },
   ],
+  pendencias: (c) => [
+    !c.doc_enviado_em && 'Novo link de documentos não foi enviado',
+  ].filter(Boolean) as string[],
+
   montarPrompt: (d) => `${IDIOMA}
 
 Você é o assistente da Smart Center Aracaju, assistência técnica autorizada Samsung. Você está LIGANDO porque a ordem de serviço está parada esperando documentação.
@@ -366,6 +400,11 @@ export const SATISFACAO: Fluxo = {
     { nome: 'servico_realizado', rotulo: 'O que foi feito', tipo: 'area', obrigatorio: true },
     { nome: 'tecnico', rotulo: 'Técnico', tipo: 'texto', obrigatorio: false },
   ],
+  pendencias: (c) => [
+    !c.restricao_horario && 'Cliente não deu a nota',
+    c.status === 'transferida' && 'Nota baixa — cliente foi transferido para atendente',
+  ].filter(Boolean) as string[],
+
   montarPrompt: (d) => `${IDIOMA}
 
 Você é o assistente da Smart Center Aracaju, assistência técnica autorizada Samsung. Você está LIGANDO para ouvir o cliente sobre o atendimento já concluído.
