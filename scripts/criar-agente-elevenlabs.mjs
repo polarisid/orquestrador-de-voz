@@ -165,6 +165,28 @@ const TOOLS = [
   ),
 
   tool(
+    'confirmar_aviso_retirada',
+    'Fluxo de retirada: registra que o cliente foi avisado de que o produto esta pronto. Chame assim que ele demonstrar que entendeu.',
+    {
+      entendeu: { type: 'boolean', description: 'true se o cliente entendeu o aviso' },
+      reacao: S('Ex: vai buscar hoje, pediu para ligar depois, estranhou o valor'),
+    },
+    ['entendeu'],
+  ),
+
+  tool(
+    'registrar_retirada',
+    'Fluxo de retirada: grava quem vai buscar o produto e quando.',
+    {
+      quem_retira: S('Nome completo de quem vai buscar'),
+      e_o_titular: { type: 'boolean', description: 'true se quem retira e o proprio cliente' },
+      previsao: S('Quando pretende vir. Ex: sabado, essa semana, nao sabe ainda'),
+      observacao: S('Qualquer detalhe relevante'),
+    },
+    ['quem_retira', 'e_o_titular'],
+  ),
+
+  tool(
     'transferir_humano',
     'Registra que a ligacao precisa de atendente humano. Use quando o cliente pedir, demonstrar irritacao, ou apos duas falhas seguidas de entendimento.',
     {
@@ -296,6 +318,8 @@ const agentId = agente.agent_id ?? agente.id;
 console.log(`\n=== PRONTO ===`);
 console.log(`Cole no .env (e nas variaveis do Coolify):\n`);
 console.log(`ELEVENLABS_AGENT_ID=${agentId}`);
+console.log(`\nO roteiro de cada ligacao vem do painel (aba Roteiro), sobrescrevendo`);
+console.log(`o prompt do agente. O prompt criado aqui e so um fallback.`);
 console.log(`\nFalta importar o numero SIP no painel da ElevenLabs`);
 console.log(`(Phone Numbers > Import a phone number from SIP trunk)`);
 console.log(`e colar o id em ELEVENLABS_PHONE_NUMBER_ID.`);

@@ -32,15 +32,32 @@ const post = async (path, body, comSegredo = false) => {
   try { return JSON.parse(txt); } catch { return {}; }
 };
 
-const { provider_call_id } = await post('/calls', {
-  os_numero: '4181234567',
-  cliente_nome: 'Maria da Silva',
-  cliente_endereco: 'Rua X, 100, Farolandia, Aracaju',
-  telefone: '79999998888',
-  produto_modelo: 'AR12BVHZCWK',
-  produto_linha: 'RAC',
-  sintoma_declarado: 'nao gela',
-});
+const fluxo = process.argv[2] ?? 'triagem';
+
+const DADOS = {
+  triagem: {
+    os_numero: '4181234567',
+    cliente_nome: 'Maria da Silva',
+    cliente_endereco: 'Rua X, 100, Farolandia, Aracaju',
+    telefone: '79999998888',
+    produto_modelo: 'AR12BVHZCWK',
+    produto_linha: 'RAC',
+    garantia: 'em_garantia',
+    sintoma_declarado: 'nao gela',
+  },
+  retirada: {
+    os_numero: '4189876543',
+    cliente_nome: 'Joao Pereira',
+    telefone: '79988887777',
+    produto_modelo: 'RT38K5A',
+    produto_linha: 'REF',
+    servico_realizado: 'Troca da placa principal',
+    pagamento: 'a_pagar',
+    prazo_guarda: '30 dias',
+  },
+}[fluxo];
+
+const { provider_call_id } = await post('/calls', { fluxo, dados: DADOS });
 
 if (!provider_call_id) {
   console.error('chamada nao foi criada — confira a janela de horario e o .env');

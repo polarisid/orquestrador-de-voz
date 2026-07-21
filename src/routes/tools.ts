@@ -135,6 +135,33 @@ export async function executarTool(
       };
     }
 
+    case 'confirmar_aviso_retirada': {
+      await supabase
+        .from('chamadas_triagem')
+        .update({ etapa: 'aviso_ok', observacao: args.reacao ?? null })
+        .eq('id', chamada.id);
+      return { fala: 'Anotado.' };
+    }
+
+    case 'registrar_retirada': {
+      await supabase
+        .from('chamadas_triagem')
+        .update({
+          retirada_quem: args.quem_retira,
+          retirada_titular: Boolean(args.e_o_titular),
+          retirada_previsao: args.previsao ?? null,
+          observacao: args.observacao ?? null,
+          etapa: 'retirada_ok',
+        })
+        .eq('id', chamada.id);
+
+      return {
+        fala: args.e_o_titular
+          ? 'Anotado.'
+          : 'Anotado. Lembre que quem retira precisa levar documento com foto.',
+      };
+    }
+
     case 'transferir_humano': {
       await supabase
         .from('chamadas_triagem')

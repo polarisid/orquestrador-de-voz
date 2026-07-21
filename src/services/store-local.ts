@@ -51,6 +51,9 @@ function comDefaults(t: string, linha: Linha): Linha {
     base.etapa = 'abertura';
     base.status = 'pendente';
   }
+  if (t === 'roteiros') {
+    base.salvo_em = null;
+  }
   if (t === 'uploads_os') {
     base.criado_em = new Date().toISOString();
     base.documentos_recebidos = [];

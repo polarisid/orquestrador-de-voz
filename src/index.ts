@@ -4,12 +4,12 @@ import fastifyStatic from '@fastify/static';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { rotasDisparo } from './routes/disparo.js';
-import { rotasRoteiro } from './routes/roteiro.js';
 import { rotasConversa } from './routes/conversa.js';
 import { authAtiva, validarToken } from './services/auth.js';
 import { iniciarReconciliacao } from './services/reconciliar.js';
 import { rotasEscuta } from './routes/escuta.js';
 import { rotasDiagnostico } from './routes/diagnostico.js';
+import { rotasFluxos } from './routes/fluxos.js';
 import { registrarApp } from './services/escuta.js';
 import fastifyWebsocket from '@fastify/websocket';
 import { rotasTools } from './routes/tools.js';
@@ -34,6 +34,12 @@ app.addHook('preHandler', async (req, reply) => {
   if (!authAtiva()) return;
   const url = req.url.split('?')[0];
   if (LIVRE.some((p) => url === p || url.startsWith(p))) return;
+
+  // Diagnóstico chamado de dentro do próprio container dispensa login:
+  // é o caminho por linha de comando quando o painel não está acessível.
+  //   docker exec <container> wget -qO- http://127.0.0.1:3001/diagnostico
+  const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '');
+  if (url === '/diagnostico' && local) return;
   // Arquivos estáticos passam; o próprio index.html redireciona para o login.
   if (/\.(html|css|js|ico|png|svg|woff2?)$/.test(url) || url === '/') return;
 
@@ -65,8 +71,8 @@ app.get('/health', async () => {
   return { ok: true, ...(faltando.length ? { configuracao_faltando: faltando } : {}) };
 });
 
+await app.register(rotasFluxos);
 await app.register(rotasDisparo);
-await app.register(rotasRoteiro);
 await app.register(rotasConversa);
 await app.register(rotasEscuta);
 await app.register(rotasDiagnostico);

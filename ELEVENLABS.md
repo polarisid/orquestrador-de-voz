@@ -326,3 +326,84 @@ Mais simples e sem navegador. Registre um softphone (MicroSIP, Zoiper) em
 e você entra em modo espião. Tecla `#` pula para a próxima chamada ativa.
 
 Funciona do celular também, o que é útil para supervisão fora da mesa.
+
+
+---
+
+## Fluxos de ligação
+
+O sistema deixou de ter um roteiro único. Cada tipo de ligação é um **fluxo**,
+definido em `src/agent/fluxos.ts`, e o painel se adapta a ele: o formulário, o
+trilho de etapas e o roteiro mudam junto.
+
+| Fluxo | Para quê |
+|---|---|
+| `triagem` | Confirma cadastro, investiga o sintoma, pede documentação |
+| `retirada` | Avisa que o reparo terminou e combina quem retira e quando |
+
+Escolha no seletor **Tipo de ligação**, no topo do formulário.
+
+### Criar um fluxo novo
+
+Adicione um objeto em `src/agent/fluxos.ts` com `id`, `nome`, `etapas`, `campos`
+e `montarPrompt`. Nada mais precisa mudar — o painel lê de `/fluxos` e monta
+tudo sozinho.
+
+### Editar o roteiro sem tocar em código
+
+Na aba **Roteiro**, escolha o fluxo, edite e clique em **Salvar como padrão**.
+A partir dali todas as ligações daquele tipo usam o texto salvo.
+
+Use `{{campo}}` para os dados da OS — os nomes são os mesmos dos campos do
+formulário: `{{os_numero}}`, `{{cliente_nome}}`, `{{pagamento}}`, e assim por
+diante.
+
+**Voltar ao original** recarrega o roteiro do código sem apagar o salvo; para
+descartar de vez, limpe o campo e salve vazio.
+
+Se você editar e **não** salvar, a alteração vale só para a próxima ligação que
+disparar — útil para testar uma frase antes de firmar.
+
+### O fluxo de retirada em resumo
+
+1. Abertura com aviso de gravação
+2. A boa notícia: produto pronto, o que foi feito, e a situação de pagamento
+3. Quem retira e quando, com aviso do prazo de guarda
+4. O que levar: documento com foto e número da OS, enviado por WhatsApp ou SMS
+5. Encerramento
+
+O agente **nunca informa valores**. Se o cliente insistir, transfere para
+atendente. É deliberado: valor dito por telefone vira expectativa que você não
+controla.
+
+Novas tools: `confirmar_aviso_retirada` e `registrar_retirada`. Rode
+`npm run criar-agente` numa conta limpa, ou crie essas duas manualmente e
+adicione ao agente existente.
+
+
+---
+
+## Banco de dados: schema isolado
+
+O projeto Supabase pode ter outras tabelas em uso. Nada da camada de voz encosta
+nelas: tudo vive no schema **`voz`**, e o `schema.sql` só faz
+`create ... if not exists` — nenhum `drop`, `truncate` ou `alter` em objeto que
+já exista.
+
+Passos:
+
+1. Cole `src/db/schema.sql` no SQL Editor e execute
+2. **Settings > API > Exposed schemas**: adicione `voz` à lista
+3. No Coolify:
+
+       SUPABASE_URL=https://xxxx.supabase.co
+       SUPABASE_SERVICE_ROLE_KEY=...
+       SUPABASE_ANON_KEY=...
+       SUPABASE_SCHEMA=voz
+
+O passo 2 é o que mais esquece: sem expor o schema, o PostgREST responde
+"relation does not exist" mesmo com as tabelas criadas.
+
+Se preferir tudo em `public`, é só `SUPABASE_SCHEMA=public` e trocar `voz.` por
+nada no SQL. Mas o isolamento vale: quando o projeto crescer, você olha o schema
+e sabe na hora o que é de quê.

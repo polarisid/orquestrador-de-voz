@@ -9,12 +9,15 @@ let cliente: any;
 
 if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   const { createClient } = await import('@supabase/supabase-js');
+  // Schema dedicado: o projeto Supabase pode ter outras tabelas em uso, e
+  // nada aqui deve encostar nelas.
+  const schema = process.env.SUPABASE_SCHEMA ?? 'voz';
   cliente = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { persistSession: false } },
+    { auth: { persistSession: false }, db: { schema } },
   );
-  console.log('[dados] Supabase');
+  console.log(`[dados] Supabase, schema "${schema}"`);
 } else {
   cliente = storeLocal;
   console.log('[dados] store local em ./dados/store.json');

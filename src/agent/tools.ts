@@ -98,6 +98,43 @@ export const TOOLS = [
     },
   },
   {
+    name: 'confirmar_aviso_retirada',
+    description:
+      'Registra que o cliente foi avisado de que o produto está pronto. Chame assim que ele demonstrar que entendeu.',
+    parameters: {
+      type: 'object',
+      properties: {
+        entendeu: { type: 'boolean' },
+        reacao: {
+          type: 'string',
+          description: 'Ex: "vai buscar hoje", "pediu para ligar depois", "estranhou o valor"',
+        },
+      },
+      required: ['entendeu'],
+    },
+  },
+  {
+    name: 'registrar_retirada',
+    description:
+      'Grava quem vai retirar o produto e quando. Chame ao final da etapa 3 do fluxo de retirada.',
+    parameters: {
+      type: 'object',
+      properties: {
+        quem_retira: {
+          type: 'string',
+          description: 'Nome completo de quem vai buscar. Se for o próprio cliente, repita o nome dele.',
+        },
+        e_o_titular: { type: 'boolean' },
+        previsao: {
+          type: 'string',
+          description: 'Quando pretende vir. Ex: "sábado", "essa semana", "não sabe ainda"',
+        },
+        observacao: { type: 'string' },
+      },
+      required: ['quem_retira', 'e_o_titular'],
+    },
+  },
+  {
     name: 'transferir_humano',
     description:
       'Transfere a ligação para um atendente. Use quando o cliente pedir, demonstrar irritação, ou após duas falhas seguidas de entendimento.',

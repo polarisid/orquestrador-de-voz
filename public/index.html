@@ -99,6 +99,7 @@ input:focus,select:focus,textarea:focus{
   outline:2px solid var(--sinal);outline-offset:-1px;border-color:var(--sinal);
 }
 .dupla{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dica{display:block;font-size:12px;color:var(--aco);margin-top:5px;line-height:1.45}
 
 button{
   font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;
@@ -332,6 +333,7 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700}
   display:flex;align-items:center;gap:12px;margin-top:11px;flex-wrap:wrap;
 }
 .barra-roteiro button{width:auto;padding:8px 14px;font-size:13px}
+code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#EDF2F1;padding:1px 4px;border-radius:2px}
 .btn-fraco{background:transparent;color:var(--aco);border:1px solid var(--linha)}
 .btn-fraco:hover{background:var(--carta);color:var(--tinta)}
 .estado-roteiro{font-size:12.5px;color:var(--aco);margin-left:auto}
@@ -355,45 +357,11 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700}
 <main>
   <section class="painel">
     <h2>Nova chamada</h2>
-    <form id="form">
-      <label><span>Ordem de serviço</span>
-        <input class="mono" name="os_numero" required placeholder="4181234567"></label>
+    <label style="margin-bottom:18px"><span>Tipo de ligação</span>
+      <select id="sel-fluxo"></select>
+      <small class="dica" id="dica-fluxo"></small></label>
 
-      <label><span>Nome no cadastro</span>
-        <input name="cliente_nome" required placeholder="Maria da Silva"></label>
-
-      <label><span>Endereço no cadastro</span>
-        <textarea name="cliente_endereco" required placeholder="Rua, número, complemento, bairro, cidade"></textarea></label>
-
-      <label><span>Telefone com DDD</span>
-        <input class="mono" name="telefone" required inputmode="numeric"
-               pattern="[0-9]{10,11}" placeholder="79999998888"
-               title="Só dígitos, com DDD"></label>
-
-      <div class="dupla">
-        <label><span>Linha</span>
-          <select name="produto_linha" required>
-            <option value="RAC">Ar-condicionado</option>
-            <option value="REF">Refrigerador</option>
-            <option value="WSM">Lava-roupas</option>
-            <option value="TV">TV</option>
-            <option value="MWO">Micro-ondas</option>
-            <option value="OUTRO">Outro</option>
-          </select></label>
-        <label><span>Modelo</span>
-          <input class="mono" name="produto_modelo" required placeholder="AR12BVHZCWK"></label>
-      </div>
-
-      <label><span>Garantia</span>
-        <select name="garantia" required>
-          <option value="a_confirmar">A confirmar</option>
-          <option value="em_garantia">Em garantia</option>
-          <option value="fora_garantia">Fora de garantia</option>
-        </select></label>
-
-      <label><span>Sintoma informado na abertura</span>
-        <textarea name="sintoma_declarado" required placeholder="não gela"></textarea></label>
-
+    <form id="form"><div id="campos"></div>
       <button type="submit" id="btn">Ligar para o cliente</button>
       <p class="aviso" id="aviso" hidden></p>
     </form>
@@ -415,11 +383,12 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700}
     </div>
 
     <div id="pnl-roteiro" role="tabpanel" aria-labelledby="aba-roteiro" hidden>
-      <p class="explica">É isto que o agente recebe antes de discar. Os dados da OS entram automaticamente conforme você preenche o formulário. Edite à vontade — o que estiver aqui quando você clicar em ligar é o que vale para esta chamada.</p>
+      <p class="explica">É isto que o agente recebe antes de discar. Use <code>{{campo}}</code> para os dados da OS — por exemplo <code>{{os_numero}}</code> ou <code>{{cliente_nome}}</code>. <strong>Salvar</strong> faz este roteiro valer para todas as próximas ligações deste tipo.</p>
       <textarea id="roteiro" spellcheck="false"></textarea>
       <div class="barra-roteiro">
-        <button type="button" class="btn-fraco" id="btn-restaurar">Restaurar padrão</button>
-        <span class="estado-roteiro" id="estado-roteiro">seguindo o padrão</span>
+        <button type="button" id="btn-salvar">Salvar como padrão</button>
+        <button type="button" class="btn-fraco" id="btn-restaurar">Voltar ao original</button>
+        <span class="estado-roteiro" id="estado-roteiro"></span>
       </div>
     </div>
   </section>
@@ -471,13 +440,12 @@ async function api(caminho, opcoes = {}) {
   return r;
 }
 
-const ETAPAS = [
-  { id:'abertura',    rot:'Abertura'  },
-  { id:'cadastro_ok', rot:'Cadastro'  },
-  { id:'sintoma_ok',  rot:'Sintoma'   },
-  { id:'doc_enviado', rot:'Documentos'},
-  { id:'fim',         rot:'Encerrada' },
-];
+/* ---------- fluxos ---------- */
+const cfgFluxos = await (await api('/fluxos')).json();
+const FLUXOS = Object.fromEntries(cfgFluxos.fluxos.map(f => [f.id, f]));
+let fluxoAtual = cfgFluxos.padrao;
+
+const etapasDe = id => (FLUXOS[id] ?? FLUXOS[cfgFluxos.padrao]).etapas;
 
 const SELOS = {
   discando:      ['ativa','discando'],
@@ -496,21 +464,24 @@ const SELOS = {
 const esc = s => String(s ?? '').replace(/[<>&"]/g, c =>
   ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 
-function indiceEtapa(c){
-  if (['concluida','sem_contato','cliente_desligou','recusou_gravacao',
-       'transferida','nao_e_o_titular','encerrada_pelo_operador'].includes(c.status)) return 4;
-  return Math.max(0, ETAPAS.findIndex(e => e.id === c.etapa));
+const FINAIS = ['concluida','sem_contato','cliente_desligou','recusou_gravacao',
+                'transferida','nao_e_o_titular','encerrada_pelo_operador','parcial'];
+
+function indiceEtapa(c, etapas){
+  if (FINAIS.includes(c.status)) return etapas.length - 1;
+  return Math.max(0, etapas.findIndex(e => e.id === c.etapa));
 }
 
 /** Só o miolo do cartão. O invólucro e o detalhe são preservados entre atualizações. */
 function corpo(c){
-  const i = indiceEtapa(c);
-  const encerrada = i === 4;
+  const etapas = etapasDe(c.fluxo);
+  const i = indiceEtapa(c, etapas);
+  const encerrada = i === etapas.length - 1;
   const [classe, texto] = SELOS[c.status] ?? ['espera', c.status ?? '—'];
 
-  const trilho = ETAPAS.map((e, n) => {
+  const trilho = etapas.map((e, n) => {
     const cls = n < i ? 'passou' : (n === i && !encerrada ? 'agora' : (n === i ? 'passou' : ''));
-    return `<div class="etapa ${cls}"><em>${e.rot}</em></div>`;
+    return `<div class="etapa ${cls}"><em>${esc(e.rotulo)}</em></div>`;
   }).join('');
 
   const dados = [];
@@ -525,15 +496,19 @@ function corpo(c){
     fora_garantia:['gar-fora','fora de garantia'],
     a_confirmar:  ['gar-confirmar','garantia a confirmar'],
   };
-  const [gcls, gtxt] = GARANTIA[c.garantia] ?? GARANTIA.a_confirmar;
+  const g = GARANTIA[c.garantia];
+  if (c.retirada_quem) dados.push(`<span>retira: <b>${esc(c.retirada_quem)}</b></span>`);
+  if (c.retirada_previsao) dados.push(`<span>previsão: <b>${esc(c.retirada_previsao)}</b></span>`);
   if (c.duracao_segundos) dados.push(`<span><b class="mono">${Math.floor(c.duracao_segundos/60)}m${String(c.duracao_segundos%60).padStart(2,'0')}s</b></span>`);
 
   return `<div class="topo">
       <span class="os">${esc(c.os_numero)}</span>
       <span class="nome">${esc(c.cadastro_nome_original ?? '')} &middot; ${esc(c.produto_modelo ?? '')}</span>
       <span style="margin-left:auto"></span>
+      ${c.fluxo && c.fluxo !== cfgFluxos.padrao
+          ? `<span class="selo">${esc((FLUXOS[c.fluxo]?.nome ?? c.fluxo).toLowerCase())}</span>` : ''}
       ${c.revisada_em ? `<span class="selo revisada">revisada</span>` : ''}
-      <span class="selo ${gcls}">${gtxt}</span>
+      ${g ? `<span class="selo ${g[0]}">${g[1]}</span>` : ''}
       <span class="selo ${classe}">${esc(texto)}</span>
     </div>
     <div class="trilho">${trilho}</div>
@@ -550,7 +525,8 @@ const abertos = new Set();
 const assinatura = c => JSON.stringify([
   c.status, c.etapa, c.garantia, c.cadastro_nome, c.cadastro_corrigido,
   c.restricao_horario, c.codigo_erro, c.doc_canal, c.duracao_segundos,
-  c.sintoma_confirmado, c.roteiro_customizado, c.revisada_em,
+  c.sintoma_confirmado, c.roteiro_customizado, c.revisada_em, c.fluxo,
+  c.retirada_quem, c.retirada_previsao,
 ]);
 
 const ATIVOS = ['discando', 'em_andamento', 'pendente'];
@@ -642,425 +618,98 @@ abas.forEach(a => a.addEventListener('click', () => {
   });
 }));
 
+/* ---------- formulário dinâmico ---------- */
+const selFluxo = document.getElementById('sel-fluxo');
+selFluxo.innerHTML = cfgFluxos.fluxos
+  .map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
+selFluxo.value = fluxoAtual;
+
+function montarCampos(){
+  const f = FLUXOS[fluxoAtual];
+  document.getElementById('dica-fluxo').textContent = f.descricao;
+
+  const html = [];
+  for (let n = 0; n < f.campos.length; n++) {
+    const c = f.campos[n];
+    const par = c.meio ? f.campos[n + 1] : null;
+    const um = c2 => {
+      const req = c2.obrigatorio ? 'required' : '';
+      const ph = c2.exemplo ? `placeholder="${esc(c2.exemplo)}"` : '';
+      const corpo =
+        c2.tipo === 'area'   ? `<textarea name="${c2.nome}" ${req} ${ph}></textarea>` :
+        c2.tipo === 'select' ? `<select name="${c2.nome}" ${req}>${
+              (c2.opcoes ?? []).map(o => `<option value="${o.valor}">${esc(o.rotulo)}</option>`).join('')
+            }</select>` :
+        c2.tipo === 'telefone'
+          ? `<input class="mono" name="${c2.nome}" ${req} inputmode="numeric"
+                    pattern="[0-9]{10,11}" ${ph} title="Só dígitos, com DDD">`
+          : `<input name="${c2.nome}" ${req} ${ph}>`;
+      return `<label><span>${esc(c2.rotulo)}</span>${corpo}</label>`;
+    };
+    if (par) { html.push(`<div class="dupla">${um(c)}${um(par)}</div>`); n++; }
+    else html.push(um(c));
+  }
+  document.getElementById('campos').innerHTML = html.join('');
+}
+
+selFluxo.addEventListener('change', () => {
+  fluxoAtual = selFluxo.value;
+  montarCampos();
+  editadoAMao = false;
+  carregarRoteiro();
+});
+
 /* ---------- roteiro ---------- */
 const campoRoteiro = document.getElementById('roteiro');
 const estado = document.getElementById('estado-roteiro');
 let editadoAMao = false;
-let ultimoPadrao = '';
+let original = '';
+let salvoEm = null;
 
 function marcarEstado(){
-  estado.textContent = editadoAMao ? 'editado à mão' : 'seguindo o padrão';
+  estado.textContent = editadoAMao
+    ? 'alterado — salve para valer nas próximas'
+    : salvoEm
+      ? `padrão salvo em ${new Date(salvoEm).toLocaleString('pt-BR')}`
+      : 'usando o roteiro original do sistema';
   estado.className = 'estado-roteiro' + (editadoAMao ? ' editado' : '');
 }
 
-async function montarRoteiro(){
-  const dados = Object.fromEntries(new FormData(document.getElementById('form')));
-  delete dados.roteiro;
-  try{
-    const r = await api('/roteiro/preview', {
-      method:'POST',
-      headers:{'content-type':'application/json'},
-      body: JSON.stringify(dados),
-    });
-    const { roteiro } = await r.json();
-    ultimoPadrao = roteiro;
-    if (!editadoAMao) campoRoteiro.value = roteiro;
-  }catch{}
+async function carregarRoteiro(){
+  const r = await api(`/fluxos/${fluxoAtual}/roteiro`);
+  const d = await r.json();
+  original = d.padrao;
+  salvoEm = d.salvo_em;
+  campoRoteiro.value = d.salvo ?? d.padrao;
+  editadoAMao = false;
+  marcarEstado();
 }
 
-let debounce;
-document.getElementById('form').addEventListener('input', ev => {
-  if (ev.target === campoRoteiro) return;
-  clearTimeout(debounce);
-  debounce = setTimeout(montarRoteiro, 350);
-});
+campoRoteiro.addEventListener('input', () => { editadoAMao = true; marcarEstado(); });
 
-campoRoteiro.addEventListener('input', () => {
-  editadoAMao = campoRoteiro.value.trim() !== ultimoPadrao.trim();
+document.getElementById('btn-salvar').addEventListener('click', async ev => {
+  const b = ev.currentTarget;
+  b.disabled = true; b.textContent = 'Salvando…';
+  const r = await api(`/fluxos/${fluxoAtual}/roteiro`, {
+    method:'PUT',
+    headers:{'content-type':'application/json'},
+    body: JSON.stringify({ texto: campoRoteiro.value }),
+  });
+  const d = await r.json();
+  salvoEm = d.salvo_em ?? null;
+  editadoAMao = false;
   marcarEstado();
+  b.disabled = false; b.textContent = 'Salvar como padrão';
 });
 
 document.getElementById('btn-restaurar').addEventListener('click', () => {
-  editadoAMao = false;
-  campoRoteiro.value = ultimoPadrao;
+  campoRoteiro.value = original;
+  editadoAMao = true;
   marcarEstado();
 });
 
-montarRoteiro();
-
-/* ---------- diagnóstico ---------- */
-const diag = document.getElementById('diag');
-document.getElementById('diag-fechar').addEventListener('click', () => diag.close());
-
-document.getElementById('btn-diag').addEventListener('click', async () => {
-  const corpo = document.getElementById('diag-corpo');
-  corpo.innerHTML = `<p class="carregando">Testando os endereços possíveis…</p>`;
-  diag.showModal();
-
-  try{
-    const d = await (await api('/diagnostico')).json();
-    const bom = d.ari === 'ok';
-
-    const linhas = [
-      ['IP do orquestrador', (d.ip_do_orquestrador ?? []).join(', ')],
-      ['Gateway detectado', d.gateway_detectado ?? '—'],
-      ['Endereço em uso', d.url_ari_em_uso],
-      ['ARI_SENHA preenchida', d.ari_senha_preenchida ? 'sim' : 'não'],
-    ];
-
-    corpo.innerHTML = `
-      <div class="veredito ${bom ? 'bom' : 'ruim'}">${esc(d.sugestao ?? '')}</div>
-      <div class="linhas">
-        ${linhas.map(([k,v]) => `<div class="linha-diag"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join('')}
-        ${Object.entries(d.tentativas ?? {}).map(([url, r]) => `
-          <div class="linha-diag">
-            <b>${esc(url.replace('/ari',''))}</b>
-            <span class="${String(r).startsWith('ok') ? 'ok' : 'nok'}">${esc(r)}</span>
-          </div>`).join('')}
-      </div>`;
-  }catch{
-    corpo.innerHTML = `<p class="carregando">Não consegui rodar o diagnóstico.</p>`;
-  }
-});
-
-/* ---------- escuta ao vivo ---------- */
-
-/**
- * Tabela de conversão µ-law -> PCM 16 bits. O Asterisk manda ulaw a 8 kHz;
- * a Web Audio API só toca Float32. Pré-computar as 256 entradas evita fazer
- * a conta bit a bit em cada um dos 8000 samples por segundo.
- */
-const MULAW = (() => {
-  const t = new Float32Array(256);
-  for (let i = 0; i < 256; i++) {
-    const u = ~i & 0xff;
-    let v = ((u & 0x0f) << 3) + 0x84;
-    v <<= (u & 0x70) >> 4;
-    v -= 0x84;
-    t[i] = ((u & 0x80) ? -v : v) / 32768;
-  }
-  return t;
-})();
-
-class Escuta {
-  constructor(id, botao, status){
-    this.id = id; this.botao = botao; this.status = status;
-    this.ws = null; this.ctx = null; this.proximo = 0; this.barras = null;
-  }
-
-  async ligar(){
-    this.ctx = new AudioContext({ sampleRate: 8000 });
-    await this.ctx.resume();
-    this.proximo = this.ctx.currentTime + 0.2;   // colchão contra jitter da rede
-    this.barras = [...this.botao.querySelectorAll('.nivel i')];
-
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const qs = token ? `?token=${encodeURIComponent(token)}` : '';
-    this.ws = new WebSocket(`${proto}://${location.host}/escuta/${this.id}${qs}`);
-    this.ws.binaryType = 'arraybuffer';
-
-    this.status.textContent = 'conectando…';
-
-    this.ws.onmessage = ev => {
-      if (typeof ev.data === 'string') {
-        const m = JSON.parse(ev.data);
-        if (m.erro) { this.status.textContent = MSG_ESCUTA[m.erro] ?? m.erro; this.desligar(); return; }
-        this.status.textContent = 'ouvindo — o cliente e o agente não te escutam';
-        this.botao.dataset.ligado = '1';
-        return;
-      }
-      this.tocar(new Uint8Array(ev.data));
-    };
-
-    this.ws.onerror = () => { this.status.textContent = 'falha na conexão'; };
-    this.ws.onclose  = () => { if (this.ctx) this.desligar(); };
-  }
-
-  tocar(bytes){
-    const buf = this.ctx.createBuffer(1, bytes.length, 8000);
-    const canal = buf.getChannelData(0);
-    let pico = 0;
-    for (let i = 0; i < bytes.length; i++) {
-      const v = MULAW[bytes[i]];
-      canal[i] = v;
-      const a = v < 0 ? -v : v;
-      if (a > pico) pico = a;
-    }
-
-    const fonte = this.ctx.createBufferSource();
-    fonte.buffer = buf;
-    fonte.connect(this.ctx.destination);
-
-    // Se atrasamos, reancora: melhor um salto curto do que acumular atraso.
-    if (this.proximo < this.ctx.currentTime) this.proximo = this.ctx.currentTime + 0.05;
-    fonte.start(this.proximo);
-    this.proximo += buf.duration;
-
-    if (this.barras) {
-      const n = Math.min(4, Math.round(pico * 9));
-      this.barras.forEach((b, i) => { b.style.height = (i < n ? 4 + i * 3.5 : 3) + 'px'; });
-    }
-  }
-
-  desligar(){
-    try { this.ws?.close(); } catch {}
-    try { this.ctx?.close(); } catch {}
-    this.ws = null; this.ctx = null;
-    this.botao.dataset.ligado = '0';
-    this.barras?.forEach(b => { b.style.height = '3px'; });
-    if (this.status.textContent === 'ouvindo — o cliente e o agente não te escutam')
-      this.status.textContent = '';
-  }
-}
-
-const MSG_ESCUTA = {
-  nao_autenticado: 'sessão expirada, recarregue a página',
-  ari_nao_configurado: 'falta configurar ARI_SENHA no servidor',
-  falha_ari: 'não alcancei o Asterisk — veja /diagnostico',
-  sem_canal_ativo: 'não há canal ativo — a ligação já terminou?',
-  chamada_nao_encontrada: 'chamada não encontrada',
-};
-
-const escutas = new Map();
-
-/* ---------- transcrição e áudio ---------- */
-const mmss = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
-
-/** Cartões já renderizados em estado final — não precisam mais de fetch. */
-const prontos = new Set();
-
-async function abrirDetalhe(el, id, silencioso){
-  const alvo = el.querySelector('.detalhe');
-  alvo.hidden = false;
-  el.setAttribute('aria-expanded','true');
-  if (prontos.has(id) && alvo.innerHTML.trim()) return;   // não re-renderiza: mataria o player
-  if (!silencioso) alvo.innerHTML = `<p class="carregando">Carregando…</p>`;
-
-  try{
-    const r = await api(`/calls/${id}/detalhe`);
-    if (!r.ok) throw new Error();
-    const d = await r.json();
-    const viva = !d.encerrada;
-    if (!viva) prontos.add(id);
-
-    const dialogoAntes = alvo.querySelector('.dialogo');
-    const noFim = !dialogoAntes ||
-      dialogoAntes.scrollTop + dialogoAntes.clientHeight >= dialogoAntes.scrollHeight - 24;
-
-    alvo.innerHTML = [
-      secaoPendencias(d),
-      secaoResumo(d),
-      secaoCorrecoes(d),
-      secaoSintoma(d),
-      secaoTriagem(d),
-      secaoGravacao(d, viva),
-      secaoConversa(d, viva),
-      viva ? acoesAoVivo(id) : acoes(id, d),
-    ].join('');
-
-    const dialogo = alvo.querySelector('.dialogo');
-    if (dialogo && noFim) dialogo.scrollTop = dialogo.scrollHeight;
-
-    // A tag <audio> não manda cabeçalho de autorização: buscamos por fetch.
-    const player = alvo.querySelector('audio');
-    if (player && !player.src) {
-      api(`/calls/${id}/audio`)
-        .then(r => (r.ok ? r.blob() : Promise.reject()))
-        .then(b => { player.src = URL.createObjectURL(b); })
-        .catch(() => {
-          player.replaceWith(Object.assign(document.createElement('p'), {
-            className:'carregando',
-            textContent:'Gravação ainda não disponível. Reabra em alguns segundos.',
-          }));
-        });
-    }
-
-    alvo.querySelector('.btn-escutar')?.addEventListener('click', async ev => {
-      ev.stopPropagation();
-      const botao = ev.currentTarget;
-      const status = alvo.querySelector('.status-escuta');
-      const atual = escutas.get(id);
-      if (atual) { atual.desligar(); escutas.delete(id); return; }
-      const e = new Escuta(id, botao, status);
-      escutas.set(id, e);
-      try { await e.ligar(); } catch { status.textContent = 'não consegui iniciar o áudio'; }
-    });
-
-    alvo.querySelector('.btn-desligar')?.addEventListener('click', async ev => {
-      ev.stopPropagation();
-      const b = ev.target;
-      b.disabled = true; b.textContent = 'Desligando…';
-      const r = await api(`/calls/${id}/desligar`, { method:'POST' });
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
-        b.disabled = false; b.textContent = 'Desligar chamada';
-        alvo.querySelector('.status-escuta').innerHTML =
-          `<span style="color:var(--alerta)">${esc(e.mensagem ?? 'Não consegui desligar.')}</span>`;
-        return;
-      }
-      prontos.delete(id);
-      atualizar();
-    });
-
-    alvo.querySelector('.btn-revisar')?.addEventListener('click', async ev => {
-      ev.stopPropagation();
-      await api(`/calls/${id}/revisar`, { method:'POST' });
-      prontos.delete(id);
-      abrirDetalhe(el, id, true);
-      atualizar();
-    });
-  }catch{
-    alvo.innerHTML = `<p class="carregando">Não consegui carregar agora.</p>`;
-  }
-}
-
-function secaoPendencias(d){
-  if (!d.pendencias?.length) return '';
-  return `<div class="pendencias">
-    <p class="rotulo" style="color:#6B5210">Precisa de atenção</p>
-    <ul>${d.pendencias.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
-  </div>`;
-}
-
-function secaoResumo(d){
-  return d.resumo ? `<p class="resumo">${esc(d.resumo)}</p>` : '';
-}
-
-function secaoCorrecoes(d){
-  const temDiff = d.correcoes?.length;
-  const temNovo = d.novos?.length;
-  if (!temDiff && !temNovo) return '';
-
-  return `<div class="secao">
-    <p class="rotulo">Cadastro a corrigir na OS</p>
-    ${temDiff ? `<table class="diff">
-      <tr><th>Campo</th><th>Como está</th><th>Como deve ficar</th></tr>
-      ${d.correcoes.map(c => `<tr>
-        <td>${esc(c.rotulo)}</td>
-        <td class="antes">${esc(c.antes)}</td>
-        <td class="depois">${esc(c.depois)}</td>
-      </tr>`).join('')}
-    </table>` : ''}
-    ${temNovo ? `<div class="fatos" style="margin-top:${temDiff ? '12px' : '0'}">
-      ${d.novos.map(n => `<div class="fato">
-        <div class="k">${esc(n.rotulo)}</div><div class="v">${esc(n.valor)}</div>
-      </div>`).join('')}
-    </div>` : ''}
-  </div>`;
-}
-
-function secaoSintoma(d){
-  const s = d.sintoma;
-  if (!s) return '';
-  const fatos = [
-    s.inicio && ['Início', s.inicio],
-    s.frequencia && ['Frequência', s.frequencia.replace('_',' ')],
-    s.codigo_erro && ['Código de erro', s.codigo_erro],
-  ].filter(Boolean);
-
-  return `<div class="secao">
-    <p class="rotulo">Sintoma confirmado${s.divergiu ? ' &middot; difere da abertura' : ''}</p>
-    <p style="margin:0 0 11px;font-size:14px;line-height:1.55">${esc(s.confirmado)}</p>
-    ${fatos.length ? `<div class="fatos">${fatos.map(([k,v]) => `
-      <div class="fato"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}
-    </div>` : ''}
-    ${s.fatores?.length ? `<div class="chips" style="margin-top:11px">
-      ${s.fatores.map(f => `<span class="chip">${esc(f)}</span>`).join('')}
-    </div>` : ''}
-    ${s.codigo_erro_descricao ? `<p style="margin:11px 0 0;font-size:13px;color:var(--aco)">${esc(s.codigo_erro_descricao)}</p>` : ''}
-  </div>`;
-}
-
-function secaoTriagem(d){
-  const t = d.triagem;
-  if (!t) return '';
-  return `<div class="secao">
-    <p class="rotulo">Triagem técnica &middot; para o técnico, não para o cliente</p>
-    ${(t.hipoteses ?? []).map(h => `
-      <div class="hipotese">
-        <span class="barra"><i style="width:${Math.round((h.confianca ?? 0)*100)}%"></i></span>
-        <span class="conf">${Math.round((h.confianca ?? 0)*100)}%</span>
-        <span>${esc(h.causa)}</span>
-      </div>`).join('')}
-    ${t.pecas_provaveis?.length ? `<div class="chips" style="margin-top:11px">
-      ${t.pecas_provaveis.map(p => `<span class="chip mono">${esc(p)}</span>`).join('')}
-    </div>` : ''}
-    ${t.boletins?.length ? `<div class="chips" style="margin-top:7px">
-      ${t.boletins.map(b => `<span class="chip mono">${esc(b)}</span>`).join('')}
-    </div>` : ''}
-    ${t.recomendacao_tecnico ? `<p style="margin:11px 0 0;font-size:13.5px;line-height:1.55">${esc(t.recomendacao_tecnico)}</p>` : ''}
-  </div>`;
-}
-
-function secaoGravacao(d, viva){
-  if (viva) return '';
-  return `<div class="secao">
-    <p class="rotulo">Gravação${d.duracao_segundos ? ` &middot; ${mmss(d.duracao_segundos)}` : ''}</p>
-    <audio controls preload="none"></audio>
-  </div>`;
-}
-
-function secaoConversa(d, viva){
-  const falas = d.transcricao ?? [];
-  return `<div class="secao">
-    <p class="rotulo">${viva
-      ? `<span class="aovivo"><span class="ponto"></span>conversa ao vivo</span>`
-      : 'Conversa'}</p>
-    ${falas.length ? `<div class="dialogo">${falas.map(f => `
-      <div class="fala ${f.quem}">
-        <span class="t">${mmss(f.segundo)}</span>
-        <span class="txt">${esc(f.texto)}</span>
-      </div>`).join('')}</div>`
-      : `<p class="carregando">${viva
-          ? 'Os trechos aparecem conforme a ElevenLabs libera.'
-          : 'Sem transcrição para esta chamada.'}</p>`}
-  </div>`;
-}
-
-function acoesAoVivo(id){
-  return `<div class="acoes">
-    <button type="button" class="btn-escutar" data-ligado="0">
-      Escutar <span class="nivel"><i></i><i></i><i></i><i></i></span>
-    </button>
-    <button type="button" class="btn-desligar btn-perigo">Desligar chamada</button>
-    <span class="status-escuta"></span>
-  </div>`;
-}
-
-function acoes(id, d){
-  return `<div class="acoes">
-    <button type="button" class="btn-revisar ${d.revisada ? 'btn-fraco' : ''}">
-      ${d.revisada ? 'Reabrir revisão' : 'Marcar como revisada'}
-    </button>
-    ${d.documentos ? `<span style="font-size:12.5px;color:var(--aco)">
-      Documentos solicitados por ${esc(d.documentos.canal)}</span>` : ''}
-  </div>`;
-}
-
-document.getElementById('lista').addEventListener('click', ev => {
-  if (ev.target.closest('.detalhe')) return;   // clique dentro do player não fecha
-  const el = ev.target.closest('.chamada');
-  if (!el) return;
-  const id = el.dataset.id;
-  if (abertos.has(id)) {
-    abertos.delete(id);
-    prontos.delete(id);
-    escutas.get(id)?.desligar(); escutas.delete(id);
-    el.querySelector('.detalhe').hidden = true;
-    el.setAttribute('aria-expanded','false');
-  } else {
-    abertos.add(id);
-    abrirDetalhe(el, id, false);
-  }
-});
-
-document.getElementById('lista').addEventListener('keydown', ev => {
-  if (ev.key !== 'Enter' && ev.key !== ' ') return;
-  const el = ev.target.closest('.chamada');
-  if (!el) return;
-  ev.preventDefault();
-  el.click();
-});
+montarCampos();
+carregarRoteiro();
 
 const aviso = (tipo, txt) => {
   const el = document.getElementById('aviso');
@@ -1073,26 +722,31 @@ document.getElementById('form').addEventListener('submit', async ev => {
   ev.preventDefault();
   const btn = document.getElementById('btn');
   const dados = Object.fromEntries(new FormData(ev.target));
-  // Só manda roteiro se o operador realmente mexeu; senão o servidor monta o padrão.
-  if (editadoAMao) dados.roteiro = campoRoteiro.value;
   btn.disabled = true; btn.textContent = 'Discando…';
+
   try{
     const r = await api('/calls', {
       method:'POST',
       headers:{'content-type':'application/json'},
-      body: JSON.stringify(dados),
+      // Só manda roteiro avulso se o operador mexeu e NÃO salvou.
+      body: JSON.stringify({
+        fluxo: fluxoAtual,
+        dados,
+        ...(editadoAMao ? { roteiro: campoRoteiro.value } : {}),
+      }),
     });
     const corpo = await r.json();
     if (r.status === 503) {
-      aviso('erro','Faltam variáveis de ambiente no servidor: ' + (corpo.faltando ?? []).join(', ') + '. Preencha e refaça o deploy.');
+      aviso('erro','Faltam variáveis de ambiente no servidor: ' + (corpo.faltando ?? []).join(', ') + '.');
+    } else if (r.status === 400) {
+      aviso('erro','Preencha: ' + (corpo.faltando ?? []).join(', '));
     } else if (r.status === 202) {
-      aviso('erro','Fora da janela de atendimento (8h às 20h, segunda a sábado). A chamada não foi disparada.');
+      aviso('erro','Fora da janela de atendimento (8h às 20h, segunda a sábado).');
     } else if (!r.ok) {
       aviso('erro','A chamada não saiu. Verifique o tronco e tente de novo.');
     } else {
       aviso('ok','Discando para o cliente. Acompanhe na aba Chamadas.');
       ev.target.reset();
-      editadoAMao = false; marcarEstado(); montarRoteiro();
     }
   }catch{
     aviso('erro','Sem resposta do servidor.');

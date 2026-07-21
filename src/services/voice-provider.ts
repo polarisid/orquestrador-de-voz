@@ -23,15 +23,7 @@ async function api(path: string, body?: unknown, method = 'POST') {
   return txt ? JSON.parse(txt) : {};
 }
 
-export interface DadosChamada {
-  os: string;
-  clienteNome: string;
-  clienteEndereco: string;
-  produtoModelo: string;
-  produtoLinha: string;
-  sintomaDeclarado: string;
-  garantia: string;
-}
+export type DadosChamada = Record<string, string>;
 
 export const voz = {
   /**
@@ -54,15 +46,10 @@ export const voz = {
       to_number: p.destino, // E.164, ex: +5579999998888
       conversation_initiation_client_data: {
         // Ficam disponíveis no prompt como {{os_numero}}, {{cliente_nome}}, etc.
-        dynamic_variables: {
-          os_numero: p.dados.os,
-          cliente_nome: p.dados.clienteNome,
-          cliente_endereco: p.dados.clienteEndereco,
-          produto_modelo: p.dados.produtoModelo,
-          produto_linha: p.dados.produtoLinha,
-          sintoma_declarado: p.dados.sintomaDeclarado,
-          garantia: p.dados.garantia,
-        },
+        // Todo campo do formulário vira {{campo}} no roteiro.
+        dynamic_variables: Object.fromEntries(
+          Object.entries(p.dados).map(([k, v]) => [k, String(v ?? '')]),
+        ),
         ...(Object.keys(overrides).length
           ? { conversation_config_override: { agent: overrides } }
           : {}),
