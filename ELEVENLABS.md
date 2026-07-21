@@ -621,3 +621,34 @@ o caminho é apontar a transferência para um ramal-pivô no seu Asterisk e deix
 o dialplan decidir o destino final consultando a API do orquestrador com
 `CURL()`. Funciona, mas só vale a complexidade se houver mais de um destino de
 verdade.
+
+---
+
+## Roteiro salvo sumiu depois do deploy
+
+Significa que os dados estão indo para `dados/store.json` **dentro do
+container**, que é recriado a cada deploy.
+
+Abra **Diagnóstico** no painel: a primeira seção diz onde os dados ficam e
+testa uma gravação de ida e volta.
+
+A pegadinha: o login usa `SUPABASE_ANON_KEY` e os dados usam
+`SUPABASE_SERVICE_ROLE_KEY`. Faltando só a segunda, o login funciona
+normalmente e você jura que o Supabase está configurado — mas os dados caem no
+arquivo local, em silêncio.
+
+No Coolify, as quatro precisam existir:
+
+    SUPABASE_URL=https://xxxx.supabase.co
+    SUPABASE_ANON_KEY=eyJ...          (login)
+    SUPABASE_SERVICE_ROLE_KEY=eyJ...  (dados)
+    SUPABASE_SCHEMA=voz
+
+E no Supabase, **Settings > API > Exposed schemas** precisa listar `voz`. Sem
+isso o PostgREST responde "relation does not exist" mesmo com as tabelas
+criadas — o diagnóstico distingue esse caso do de variável ausente.
+
+No log do boot dá para conferir sem abrir o painel:
+
+    [dados] Supabase, schema "voz"              <- certo
+    [dados] store local em ./dados/store.json   <- efemero

@@ -467,8 +467,8 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
 </aside>
 
 <dialog id="diag">
-  <h2>Ponte com o Asterisk</h2>
-  <p class="explica" style="margin-bottom:14px">Usado por <em>Escutar</em> e <em>Desligar chamada</em>.</p>
+  <h2>Diagnóstico</h2>
+  <p class="explica" style="margin-bottom:14px">Estado das duas dependências externas: onde os dados são gravados e a ponte com o Asterisk.</p>
   <div id="diag-corpo"><p class="carregando">Testando…</p></div>
   <div class="barra-acoes"><button class="btn" id="diag-fechar">Fechar</button></div>
 </dialog>
@@ -1289,6 +1289,20 @@ document.getElementById('btn-diag').addEventListener('click', async () => {
   try{
     const d = await (await api('/diagnostico')).json();
     const bom = d.ari === 'ok';
+    const dd = d.dados ?? {};
+
+    const blocoDados = `
+      <div class="veredito ${dd.persistente ? 'bom' : 'ruim'}">
+        ${dd.persistente
+          ? `Dados no Supabase, schema <b>${esc(dd.schema)}</b>. Gravação confirmada — o que você salvar sobrevive ao deploy.`
+          : esc(dd.aviso ?? 'Os dados não estão sendo persistidos.')}
+      </div>
+      <div class="linha-diag"><b>Onde os dados ficam</b><span>${
+        dd.backend === 'supabase' ? 'Supabase' : 'arquivo dentro do container'}</span></div>
+      <div class="linha-diag"><b>SUPABASE_URL</b><span class="${dd.supabase_url?'ok':'nok'}">${dd.supabase_url?'preenchida':'ausente'}</span></div>
+      <div class="linha-diag"><b>SERVICE_ROLE_KEY</b><span class="${dd.service_role?'ok':'nok'}">${dd.service_role?'preenchida':'ausente'}</span></div>
+      <div class="linha-diag"><b>ANON_KEY</b><span class="${dd.anon?'ok':'nok'}">${dd.anon?'preenchida':'ausente'}</span></div>`;
+
     const linhas = [
       ['IP do orquestrador', (d.ip_do_orquestrador ?? []).join(', ')],
       ['Gateway detectado', d.gateway_detectado ?? '—'],
@@ -1296,6 +1310,9 @@ document.getElementById('btn-diag').addEventListener('click', async () => {
       ['ARI_SENHA preenchida', d.ari_senha_preenchida ? 'sim' : 'não'],
     ];
     corpo.innerHTML = `
+      <p class="rotulo" style="margin-top:0">Persistência dos dados</p>
+      ${blocoDados}
+      <p class="rotulo" style="margin-top:22px">Ponte com o Asterisk</p>
       <div class="veredito ${bom ? 'bom' : 'ruim'}">${esc(d.sugestao ?? '')}</div>
       ${linhas.map(([k,v]) => `<div class="linha-diag"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join('')}
       ${Object.entries(d.tentativas ?? {}).map(([url, r]) => `<div class="linha-diag">

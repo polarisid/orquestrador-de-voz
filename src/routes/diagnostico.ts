@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { networkInterfaces } from 'node:os';
 import { gatewayPadrao, urlAri } from '../services/rede.js';
+import { supabase } from '../services/supabase.js';
 
 /**
  * Diagnóstico da ponte com o Asterisk.
@@ -16,8 +17,66 @@ function faixa(gw: string | null) {
   return `${a}.${b}.0.0/16`;
 }
 
+/**
+ * Onde os dados estão sendo gravados, e se gravam mesmo.
+ *
+ * O sintoma clássico é o roteiro salvo sumir depois do deploy: significa que
+ * está indo para o arquivo local do container, que é efêmero. Isso acontece em
+ * silêncio quando falta a service_role — o login continua funcionando com a
+ * chave anon, então parece que o Supabase está configurado.
+ */
+async function checarDados() {
+  const temUrl = Boolean(process.env.SUPABASE_URL);
+  const temService = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const backend = temUrl && temService ? 'supabase' : 'arquivo_local';
+  const schema = process.env.SUPABASE_SCHEMA ?? 'voz';
+
+  const base = {
+    backend,
+    schema: backend === 'supabase' ? schema : null,
+    supabase_url: temUrl,
+    service_role: temService,
+    anon: Boolean(process.env.SUPABASE_ANON_KEY),
+  };
+
+  if (backend === 'arquivo_local') {
+    return {
+      ...base,
+      persistente: false,
+      aviso: temUrl
+        ? 'SUPABASE_URL está preenchida mas SUPABASE_SERVICE_ROLE_KEY não. Os dados vão para um arquivo dentro do container e somem a cada deploy.'
+        : 'Sem Supabase configurado. Os dados vão para um arquivo dentro do container e somem a cada deploy.',
+    };
+  }
+
+  // Ida e volta de verdade: existir configuração não garante que grava.
+  const marca = new Date().toISOString();
+  try {
+    const { data: antes } = await supabase.from('config').select('id').eq('chave', '_teste').single();
+    if (antes) await supabase.from('config').update({ valor: marca }).eq('id', antes.id);
+    else await supabase.from('config').insert({ chave: '_teste', valor: marca });
+
+    const { data: depois } = await supabase.from('config').select('valor').eq('chave', '_teste').single();
+
+    return {
+      ...base,
+      persistente: depois?.valor === marca,
+      aviso: depois?.valor === marca
+        ? null
+        : `Gravei mas não li de volta. Confira se o schema "${schema}" está em Settings > API > Exposed schemas e se o schema.sql foi executado.`,
+    };
+  } catch (e) {
+    return {
+      ...base,
+      persistente: false,
+      aviso: `Falha ao gravar: ${String(e).slice(0, 200)}. Provavelmente o schema "${schema}" não está exposto na API do Supabase, ou as tabelas não foram criadas.`,
+    };
+  }
+}
+
 export async function rotasDiagnostico(app: FastifyInstance) {
   app.get('/diagnostico', async () => {
+    const dados = await checarDados();
     const ips = Object.values(networkInterfaces())
       .flat()
       .filter((i) => i && i.family === 'IPv4' && !i.internal)
@@ -38,6 +97,7 @@ export async function rotasDiagnostico(app: FastifyInstance) {
     if (!senha) {
       return {
         ...rede,
+        dados,
         ari: 'sem_senha',
         sugestao: 'Preencha ARI_SENHA com o mesmo valor de telefonia/.env.',
       };
@@ -78,6 +138,7 @@ export async function rotasDiagnostico(app: FastifyInstance) {
 
     return {
       ...rede,
+      dados,
       tentativas,
       ari: funcionou ? 'ok' : 'inalcancavel',
       sugestao: funcionou

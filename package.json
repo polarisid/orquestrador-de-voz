@@ -9,6 +9,7 @@
     "simular": "node mock/simular-chamada.mjs",
     "ver": "node mock/ver-dados.mjs",
     "criar-agente": "node scripts/criar-agente-elevenlabs.mjs",
+    "criar-tool": "node scripts/criar-tool.mjs",
     "importar-numero": "node scripts/importar-numero-elevenlabs.mjs",
     "atualizar-agente": "node scripts/atualizar-agente-elevenlabs.mjs",
     "build": "tsc",
