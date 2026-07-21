@@ -652,3 +652,42 @@ No log do boot dá para conferir sem abrir o painel:
 
     [dados] Supabase, schema "voz"              <- certo
     [dados] store local em ./dados/store.json   <- efemero
+
+
+---
+
+## Build falhando no `npx tsc` sem mensagem de erro
+
+Se o log do Coolify corta em `RUN npx tsc` e nao mostra erro nenhum, o processo
+nao falhou — foi **morto**. Quase sempre e memoria.
+
+O Dockerfile anterior tinha dois estagios, e o BuildKit rodava os dois
+`npm install` em paralelo. Numa VPS que ja roda n8n, dois Chatwoot, duas
+Evolution API e varios Postgres, o pico derruba o build. O OOM killer nao deixa
+mensagem: o processo simplesmente some.
+
+Agora e estagio unico: instala uma vez, compila com teto de memoria explicito
+(`--max-old-space-size=640`), e remove as dependencias de desenvolvimento
+depois. Imagem final praticamente do mesmo tamanho.
+
+### O bug que estava escondido junto
+
+O estagio de runtime rodava `npm install --omit=optional`, e o
+`@supabase/supabase-js` estava em `optionalDependencies`. Ou seja, o cliente
+do Supabase nunca foi instalado em producao.
+
+Nao dava sintoma porque `SUPABASE_URL` estava vazia e o import dinamico nunca
+rodava. No momento em que voce preenchesse as chaves, o container quebraria no
+boot — e o sintoma seria "parou de subir depois que configurei o banco", que
+leva a investigar o lugar errado.
+
+Corrigido: o pacote saiu de `optionalDependencies` para `dependencies`, e o
+`npm prune --omit=dev` preserva ele.
+
+### Se o build falhar de novo
+
+No Coolify, ative **Show Debug Logs** antes do deploy — a saida do tsc aparece.
+E confira a memoria da VPS durante o build:
+
+    free -m
+    docker stats --no-stream

@@ -1,24 +1,38 @@
-# Build deterministico para o Coolify.
-# Mais previsivel que deixar o Nixpacks adivinhar.
+# Build em estagio unico.
+#
+# A versao anterior tinha dois estagios, e o BuildKit rodava os dois "npm
+# install" em paralelo — pico de memoria dobrado. Numa VPS que ja roda n8n,
+# Chatwoot, Evolution API e varios Postgres, isso derruba o build sem deixar
+# mensagem de erro: o processo e morto, nao falha.
+#
+# Estagio unico instala uma vez, compila, e depois remove as dependencias de
+# desenvolvimento. Imagem final fica praticamente do mesmo tamanho.
 
-FROM node:22-alpine AS build
+FROM node:22-alpine
 WORKDIR /app
-COPY package.json ./
+
+COPY package.json tsconfig.json ./
+
+# NODE_ENV so entra depois: com production, o npm pula as devDependencies
+# e o tsc nao existiria para compilar.
 RUN npm install
-COPY tsconfig.json ./
-COPY src ./src
-RUN npx tsc
 
-FROM node:22-alpine AS runtime
-WORKDIR /app
-ENV NODE_ENV=production
-COPY package.json ./
-RUN npm install --omit=dev --omit=optional
-COPY --from=build /app/dist ./dist
+COPY src ./src
+
+# Teto de memoria explicito. Sem isto o tsc pode pedir mais do que a VPS tem
+# no momento e ser morto pelo OOM killer, de novo sem mensagem.
+RUN NODE_OPTIONS=--max-old-space-size=640 npx tsc
+
+# Fora as ferramentas de build; o @supabase/supabase-js FICA — ele e carregado
+# dinamicamente quando o Supabase esta configurado, e sem ele o boot quebra.
+RUN npm prune --omit=dev
+
 COPY public ./public
 
-# ./dados so e usado quando SUPABASE_URL esta vazio (store local).
+ENV NODE_ENV=production
+# So usado quando o Supabase nao esta configurado.
 RUN mkdir -p /app/dados
+
 EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
