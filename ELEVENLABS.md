@@ -528,3 +528,62 @@ transferir", e nada acontece. É o pior desfecho possível.
 
 Configure no painel da ElevenLabs, em Tools do agente, antes de usar em
 produção.
+
+
+---
+
+## Transferir para um atendente
+
+Duas peças precisam existir. Ter só uma faz o agente prometer transferência e
+não entregar.
+
+### 1. A ferramenta no agente
+
+`transferir_humano` só grava no banco — quem transfere de verdade é a system
+tool `transfer_to_number` da ElevenLabs. Configure o destino:
+
+    NUMERO_TRANSBORDO=+557933000000
+
+E rode `npm run atualizar-agente`. O script monta a regra com a condição de
+quando transferir (cliente pediu, demonstrou irritação, perguntou valores, ou
+duas falhas de entendimento).
+
+Para um ramal específico, use SIP URI:
+
+    NUMERO_TRANSBORDO=sip:1001@sip.ifalei.com.br
+
+**Prefira o número.** Um DID deixa a central distribuir para quem estiver livre;
+o ramal amarra o transbordo a uma pessoa, e quando ela sai de férias você
+descobre pelo cliente.
+
+### 2. O caminho no Asterisk
+
+O dialplan agora reconhece ramal curto (3 a 5 dígitos) e manda direto para a
+central, sem prefixo de DDD. Números completos seguem o caminho normal.
+
+Se o ramal tocar e ninguém atender, o cliente ouve um aviso em vez de silêncio —
+`vm-nobodyavail`, que é um som padrão do Asterisk.
+
+    cd /opt/triagem && git pull
+    cd telefonia && bash gerar-config.sh && docker restart asterisk-triagem
+
+### O detalhe que vai te pegar
+
+**Transferência consome um segundo canal.** Durante o transbordo existem duas
+pernas ao mesmo tempo: a do cliente e a do atendente. Com `MAX_CHAMADAS_SIMULTANEAS=1`
+e um único canal no ramal iFalei, a transferência pode simplesmente falhar por
+falta de canal.
+
+Se o transbordo for parte real da operação, isso deixa de ser opcional: você
+precisa de tronco com pelo menos dois canais simultâneos. Vale perguntar o preço
+à iFalei antes de prometer transferência ao cliente.
+
+### Como testar
+
+1. Dispare uma ligação para o seu próprio celular
+2. Diga "quero falar com uma pessoa"
+3. O agente deve avisar e transferir
+
+No servidor, com o log SIP ligado, você vê um `REFER` saindo da ElevenLabs ou um
+segundo `INVITE` para o destino. Se não vier nenhum dos dois, a system tool não
+está configurada no agente.

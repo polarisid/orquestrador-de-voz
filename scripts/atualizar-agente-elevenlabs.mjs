@@ -21,6 +21,7 @@ if (existsSync('.env')) {
 const KEY = process.env.ELEVENLABS_API_KEY;
 const AGENT = process.env.ELEVENLABS_AGENT_ID;
 const VOICE = process.env.ELEVENLABS_VOICE_ID;
+const TRANSBORDO = process.env.NUMERO_TRANSBORDO;
 
 if (!KEY || !AGENT) {
   console.error('Faltam ELEVENLABS_API_KEY ou ELEVENLABS_AGENT_ID no .env');
@@ -89,7 +90,7 @@ Chame encerrar_triagem. Depois de se despedir, ENCERRE A LIGACAO usando a ferram
 # Limites
 Nunca prometa data, horario ou valor.
 Nunca afirme que o reparo e coberto pela garantia — depende da nota fiscal e da avaliacao tecnica.
-Se o cliente pedir para falar com uma pessoa, ou demonstrar irritacao, chame transferir_humano imediatamente, sem argumentar.`;
+Se o cliente pedir para falar com uma pessoa, ou demonstrar irritacao, chame transferir_humano imediatamente, sem argumentar. Logo depois use a ferramenta de transferencia para passar a ligacao ao atendimento: avise "vou te transferir agora" e transfira. Nunca prometa transferencia sem executar.`;
 
 const PRIMEIRA_FALA =
   'Ola! Aqui e o assistente da Smart Center Aracaju, assistencia autorizada Samsung. Estou ligando sobre a ordem de servico {{os_numero}}. Esta ligacao e gravada para registro do atendimento. Posso continuar?';
@@ -102,7 +103,29 @@ const corpo = {
       prompt: {
         prompt: PROMPT,
         // Garante a tool nativa de encerrar, que nao vem em agente criado por API.
-        built_in_tools: { end_call: {} },
+        built_in_tools: {
+          end_call: {},
+        // Transbordo para humano. Sem isto o agente diz "vou transferir"
+        // e nao acontece nada — o pior desfecho possivel, porque quebra
+        // uma promessa explicita feita ao cliente.
+        ...(TRANSBORDO
+          ? {
+              transfer_to_number: {
+                transfers: [
+                  {
+                    transfer_destination: TRANSBORDO.startsWith('sip:')
+                      ? { type: 'sip_uri', sip_uri: TRANSBORDO }
+                      : { type: 'phone', phone_number: TRANSBORDO },
+                    condition:
+                      'O cliente pediu para falar com uma pessoa, demonstrou irritacao, ' +
+                      'perguntou valores, ou houve duas falhas seguidas de entendimento.',
+                    transfer_type: 'conference',
+                  },
+                ],
+              },
+            }
+          : {}),
+        },
       },
     },
     asr: { language: 'pt' },
@@ -138,4 +161,5 @@ if (!r.ok) {
 console.log('Agente atualizado.');
 console.log(`  idioma: pt`);
 console.log(`  voz: ${VOICE || '(padrao — configure ELEVENLABS_VOICE_ID)'}`);
+console.log(`  transbordo: ${TRANSBORDO || '(desligado — configure NUMERO_TRANSBORDO)'}`);
 console.log('\nA proxima ligacao ja usa a versao nova. Nao precisa redeploy.');

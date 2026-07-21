@@ -22,6 +22,13 @@ exten => _X.,1,NoOp(Teste manual para ${EXTEN})
 ; ============================================================
 
 [da-elevenlabs]
+; Ramal interno (3 a 5 digitos): vai direto para a central, sem prefixo.
+; Precisa vir ANTES do padrao geral, senao o _X. captura primeiro.
+exten => _XXX,1,Goto(interno,${EXTEN},1)
+exten => _XXXX,1,Goto(interno,${EXTEN},1)
+exten => _XXXXX,1,Goto(interno,${EXTEN},1)
+
+; Numero completo, com ou sem o + do E.164.
 exten => _[+]X.,1,Goto(sair,${EXTEN:1},1)
 exten => _X.,1,Goto(sair,${EXTEN},1)
 
@@ -35,6 +42,22 @@ exten => _X.,1,NoOp(ElevenLabs -> ${EXTEN})
 ; Qualquer coisa que nao casou acima cai aqui e fica registrada,
 ; em vez de sumir com um 404 sem explicacao.
 exten => i,1,NoOp(DESTINO NAO RECONHECIDO: ${EXTEN})
+ same => n,Hangup()
+
+; ============================================================
+; RAMAIS INTERNOS — transbordo para atendente humano.
+;
+; A central da iFalei roteia o ramal curto quando o INVITE chega
+; pelo tronco autenticado. Se ela recusar, use um DID em E.164
+; no NUMERO_TRANSBORDO em vez do ramal.
+; ============================================================
+
+[interno]
+exten => _X.,1,NoOp(Transbordo para ramal ${EXTEN})
+ same => n,Dial(PJSIP/${EXTEN}@ifalei,45)
+ same => n,NoOp(Resultado do transbordo: ${DIALSTATUS})
+ ; Ramal ocupado ou sem resposta: o cliente nao pode ficar no vazio.
+ same => n,Playback(vm-nobodyavail)
  same => n,Hangup()
 
 ; ============================================================
