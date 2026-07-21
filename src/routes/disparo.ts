@@ -12,6 +12,48 @@ interface DisparoBody {
   roteiro?: string;
 }
 
+/**
+ * Dispara uma chamada e grava a linha. Usado pelo painel e pela fila.
+ * Retorna o id da chamada.
+ */
+export async function dispararChamada(
+  fluxoId: string,
+  d: Record<string, string>,
+  roteiroAvulso?: string,
+): Promise<string> {
+  const prompt = roteiroAvulso?.trim() || (await roteiroEmVigor(fluxoId, d));
+
+  const chamada = await voz.originar({
+    destino: `+55${String(d.telefone).replace(/\D/g, '')}`,
+    prompt,
+    dados: d,
+  });
+
+  const { data } = await supabase
+    .from('chamadas_triagem')
+    .insert({
+      fluxo: fluxoId,
+      dados: d,
+      os_numero: d.os_numero,
+      provider_call_id: chamada.id,
+      sip_call_id: chamada.sipCallId ?? null,
+      telefone: d.telefone,
+      produto_modelo: d.produto_modelo ?? null,
+      produto_linha: d.produto_linha ?? null,
+      sintoma_declarado: d.sintoma_declarado ?? null,
+      garantia: d.garantia ?? null,
+      cadastro_nome_original: d.cliente_nome ?? null,
+      cadastro_endereco_original: d.cliente_endereco ?? null,
+      roteiro_customizado: Boolean(roteiroAvulso?.trim()),
+      status: 'discando',
+      etapa: 'abertura',
+    })
+    .select('id')
+    .single();
+
+  return data?.id;
+}
+
 export async function rotasDisparo(app: FastifyInstance) {
   app.get('/calls', async () => {
     const { data } = await supabase.from('chamadas_triagem').select('*');
@@ -49,39 +91,8 @@ export async function rotasDisparo(app: FastifyInstance) {
       return reply.code(202).send({ status: 'agendada_proxima_janela' });
     }
 
-    const prompt = req.body.roteiro?.trim() || (await roteiroEmVigor(fluxoId, d));
-
-    const chamada = await voz.originar({
-      destino: `+55${String(d.telefone).replace(/\D/g, '')}`,
-      prompt,
-      // Tudo do formulário vira variável dinâmica, então um roteiro salvo
-      // pode usar {{qualquer_campo}} sem eu precisar mexer em código.
-      dados: d,
-    });
-
-    const { data } = await supabase
-      .from('chamadas_triagem')
-      .insert({
-        fluxo: fluxoId,
-        dados: d,
-        os_numero: d.os_numero,
-        provider_call_id: chamada.id,
-        sip_call_id: chamada.sipCallId ?? null,
-        telefone: d.telefone,
-        produto_modelo: d.produto_modelo ?? null,
-        produto_linha: d.produto_linha ?? null,
-        sintoma_declarado: d.sintoma_declarado ?? null,
-        garantia: d.garantia ?? null,
-        cadastro_nome_original: d.cliente_nome ?? null,
-        cadastro_endereco_original: d.cliente_endereco ?? null,
-        roteiro_customizado: Boolean(req.body.roteiro?.trim()),
-        status: 'discando',
-        etapa: 'abertura',
-      })
-      .select('id')
-      .single();
-
-    return { chamada_id: data?.id, provider_call_id: chamada.id };
+    const chamadaId = await dispararChamada(fluxoId, d, req.body.roteiro);
+    return { chamada_id: chamadaId };
   });
 }
 

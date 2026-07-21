@@ -407,3 +407,79 @@ O passo 2 é o que mais esquece: sem expor o schema, o PostgREST responde
 Se preferir tudo em `public`, é só `SUPABASE_SCHEMA=public` e trocar `voz.` por
 nada no SQL. Mas o isolamento vale: quando o projeto crescer, você olha o schema
 e sabe na hora o que é de quê.
+
+
+---
+
+# Suíte de voz
+
+## Fluxos disponíveis
+
+| Fluxo | Quando usar |
+|---|---|
+| Triagem técnica | OS aberta, antes de mandar técnico |
+| Retirada de produto reparado | Reparo pronto, avisar e combinar retirada |
+| Confirmação de visita | Véspera da visita agendada |
+| Cobrança de documentação | OS parada esperando nota fiscal ou etiqueta |
+| Pesquisa de satisfação | Atendimento concluído |
+
+Cada um define os próprios campos, etapas e roteiro em `src/agent/fluxos.ts`.
+Todos podem ser editados e salvos pelo painel, na aba Roteiro.
+
+## Fila de discagem
+
+Aba **Fila**. Cole uma planilha com cabeçalho — copiar do Excel e colar
+funciona. O cabeçalho aceita tanto o rótulo do formulário ("Nome do cliente")
+quanto o nome técnico do campo ("cliente_nome").
+
+**Copiar modelo** preenche a caixa com o cabeçalho certo do fluxo escolhido.
+
+Linhas inválidas são recusadas individualmente, com o motivo, e as boas entram
+mesmo assim. Nada de rejeitar o lote inteiro por causa de um telefone errado.
+
+Três limites governam o disparo:
+
+| Limite | Padrão | Por quê |
+|---|---|---|
+| Janela | 8h-20h, seg-sáb | ninguém liga para cliente às 22h |
+| Simultâneas | `MAX_CHAMADAS_SIMULTANEAS=1` | um ramal iFalei aguarda uma por vez; estourar gera recusas que parecem falha do agente |
+| Tentativas | 3, com 90 min entre elas | insistir sem limite vira perseguição |
+
+Quem não atendeu volta para a fila sozinho. Quem falou é marcado como concluída.
+
+Se você contratar um tronco com vários canais, suba o
+`MAX_CHAMADAS_SIMULTANEAS` — é a única mudança necessária para escalar.
+
+## Números
+
+Aba **Números**, últimos 30 dias. As métricas foram escolhidas por mudarem
+decisão:
+
+- **falaram com alguém** — se estiver baixo, o problema é horário ou caller ID,
+  não o roteiro
+- **cadastro errado na OS** — costuma ser o número que justifica o projeto
+  sozinho: cada endereço errado evitado é uma visita perdida a menos
+- **foram para humano** — acima de 25% o cartão fica âmbar; é sinal de que o
+  roteiro está falhando em algum ponto, e a transcrição mostra onde
+- **esperando revisão** — sua fila de trabalho
+
+---
+
+# O que ainda falta: receptivo
+
+Hoje a suíte só liga. Receber ligação é o maior volume de uma assistência, e a
+base já está pronta: o tronco inbound da ElevenLabs já aponta para o seu IP.
+
+O que falta:
+
+1. Um agente de receptivo na ElevenLabs, com roteiro próprio: identificar o
+   cliente pelo telefone, consultar o status da OS, informar, e transferir para
+   humano quando fugir do escopo
+2. Uma tool `consultar_status_os` no orquestrador, batendo no seu sistema
+3. Dialplan no Asterisk roteando o DID de entrada para a ElevenLabs em vez de
+   para o ramal
+4. Decidir o horário: fora do expediente o agente atende sozinho; no expediente,
+   talvez só transborde
+
+O item 4 é decisão de operação, não técnica — e é o que define se isso ajuda ou
+atrapalha seu atendimento humano.

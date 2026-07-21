@@ -101,6 +101,27 @@ alter table voz.chamadas_triagem enable row level security;
 alter table voz.uploads_os enable row level security;
 
 
+-- Fila de discagem.
+-- status: pendente | discada | concluida | sem_contato | falhou | cancelada | arquivada
+create table if not exists voz.fila (
+  id uuid primary key default gen_random_uuid(),
+  fluxo text not null,
+  dados jsonb not null,
+  status text not null default 'pendente',
+  tentativas int default 0,
+  chamada_id uuid,
+  proxima_em timestamptz,
+  ultima_em timestamptz,
+  finalizada_em timestamptz,
+  erro text,
+  criada_em timestamptz default now()
+);
+
+create index on voz.fila (status);
+create index on voz.fila (criada_em);
+
+alter table voz.fila enable row level security;
+
 -- Roteiros editados pelo painel. Um por fluxo; vazio significa usar o padrão.
 create table if not exists voz.roteiros (
   id uuid primary key default gen_random_uuid(),

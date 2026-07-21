@@ -10,6 +10,10 @@ import { iniciarReconciliacao } from './services/reconciliar.js';
 import { rotasEscuta } from './routes/escuta.js';
 import { rotasDiagnostico } from './routes/diagnostico.js';
 import { rotasFluxos } from './routes/fluxos.js';
+import { rotasFila } from './routes/fila.js';
+import { rotasMetricas } from './routes/metricas.js';
+import { iniciarFila } from './services/fila.js';
+import { dispararChamada } from './routes/disparo.js';
 import { registrarApp } from './services/escuta.js';
 import fastifyWebsocket from '@fastify/websocket';
 import { rotasTools } from './routes/tools.js';
@@ -73,6 +77,8 @@ app.get('/health', async () => {
 
 await app.register(rotasFluxos);
 await app.register(rotasDisparo);
+await app.register(rotasFila);
+await app.register(rotasMetricas);
 await app.register(rotasConversa);
 await app.register(rotasEscuta);
 await app.register(rotasDiagnostico);
@@ -81,5 +87,6 @@ await app.register(rotasEventos);
 
 iniciarReconciliacao(app.log);
 registrarApp(app.log);
+iniciarFila(dispararChamada, app.log);
 
 await app.listen({ port: Number(process.env.PORT ?? 3001), host: '0.0.0.0' });

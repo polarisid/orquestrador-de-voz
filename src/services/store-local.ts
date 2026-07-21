@@ -51,6 +51,10 @@ function comDefaults(t: string, linha: Linha): Linha {
     base.etapa = 'abertura';
     base.status = 'pendente';
   }
+  if (t === 'fila') {
+    base.status = 'pendente';
+    base.tentativas = 0;
+  }
   if (t === 'roteiros') {
     base.salvo_em = null;
   }

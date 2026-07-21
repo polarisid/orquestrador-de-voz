@@ -333,6 +333,22 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700}
   display:flex;align-items:center;gap:12px;margin-top:11px;flex-wrap:wrap;
 }
 .barra-roteiro button{width:auto;padding:8px 14px;font-size:13px}
+#fila-tabela{
+  width:100%;min-height:180px;font-family:'IBM Plex Mono',monospace;
+  font-size:12.5px;line-height:1.6;padding:12px;
+}
+.numeros{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.numero{border:1px solid var(--linha);border-radius:var(--r);padding:13px 15px;background:var(--carta)}
+.numero .n{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;line-height:1.1}
+.numero .k{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--aco);margin-top:5px}
+.numero .obs{font-size:12px;color:var(--aco);margin-top:4px;line-height:1.4}
+.numero.destaque .n{color:var(--sinal)}
+.numero.alerta .n{color:var(--espera)}
+table.tab{width:100%;border-collapse:collapse;font-size:13.5px}
+table.tab th{text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--aco);font-weight:600;padding:0 10px 6px 0;border-bottom:1px solid var(--linha)}
+table.tab td{padding:8px 10px 8px 0;border-bottom:1px solid var(--linha)}
+table.tab td:not(:first-child){font-family:'IBM Plex Mono',monospace;font-size:12.5px}
 code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#EDF2F1;padding:1px 4px;border-radius:2px}
 .btn-fraco{background:transparent;color:var(--aco);border:1px solid var(--linha)}
 .btn-fraco:hover{background:var(--carta);color:var(--tinta)}
@@ -370,6 +386,8 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#EDF2F1;p
   <section class="painel">
     <div class="abas" role="tablist">
       <button class="aba" role="tab" id="aba-chamadas" aria-controls="pnl-chamadas" aria-selected="true">Chamadas</button>
+      <button class="aba" role="tab" id="aba-fila"     aria-controls="pnl-fila"     aria-selected="false">Fila</button>
+      <button class="aba" role="tab" id="aba-metricas" aria-controls="pnl-metricas" aria-selected="false">Números</button>
       <button class="aba" role="tab" id="aba-roteiro"  aria-controls="pnl-roteiro"  aria-selected="false">Roteiro</button>
     </div>
 
@@ -380,6 +398,25 @@ code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#EDF2F1;p
         <button type="button" data-f="revisar" aria-pressed="false">Precisam de revisão</button>
       </div>
       <div id="lista"></div>
+    </div>
+
+    <div id="pnl-fila" role="tabpanel" aria-labelledby="aba-fila" hidden>
+      <p class="explica">Cole uma planilha com cabeçalho — copiar do Excel e colar aqui funciona. A fila respeita a janela de atendimento, dispara <strong id="max-sim">1</strong> por vez e reagenda quem não atendeu, até 3 tentativas.</p>
+      <div class="barra-roteiro" style="margin:0 0 10px">
+        <select id="fila-fluxo" style="width:auto"></select>
+        <button type="button" class="btn-fraco" id="btn-modelo">Copiar modelo</button>
+      </div>
+      <textarea id="fila-tabela" spellcheck="false" placeholder="Ordem de serviço,Nome do cliente,Telefone com DDD,..."></textarea>
+      <div class="barra-roteiro">
+        <button type="button" id="btn-enfileirar">Adicionar à fila</button>
+        <button type="button" class="btn-fraco" id="btn-limpar-fila">Arquivar finalizados</button>
+        <span class="estado-roteiro" id="fila-estado"></span>
+      </div>
+      <div id="fila-resumo" style="margin-top:18px"></div>
+    </div>
+
+    <div id="pnl-metricas" role="tabpanel" aria-labelledby="aba-metricas" hidden>
+      <div id="metricas"></div>
     </div>
 
     <div id="pnl-roteiro" role="tabpanel" aria-labelledby="aba-roteiro" hidden>
@@ -603,6 +640,7 @@ async function atualizar(){
 
     document.getElementById('pulso-txt').textContent =
       new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    if (document.getElementById('aba-fila').getAttribute('aria-selected') === 'true') verFila();
   }catch{
     document.getElementById('pulso-txt').textContent = 'sem conexão';
   }
@@ -616,6 +654,8 @@ abas.forEach(a => a.addEventListener('click', () => {
     o.setAttribute('aria-selected', String(ativa));
     document.getElementById(o.getAttribute('aria-controls')).hidden = !ativa;
   });
+  if (a.id === 'aba-fila') verFila();
+  if (a.id === 'aba-metricas') verMetricas();
 }));
 
 /* ---------- formulário dinâmico ---------- */
