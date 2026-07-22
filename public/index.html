@@ -900,10 +900,12 @@ const acoesAoVivo = () => `<div class="rodape-acoes">
   <span class="status-escuta"></span></div>`;
 
 const acoesFinal = d => `<div class="rodape-acoes">
-  <button type="button" class="btn ${d.revisada ? '' : 'btn-forte'} btn-revisar">
+  ${d.religavel ? `<button type="button" class="btn btn-forte btn-religar">Ligar de novo</button>` : ''}
+  <button type="button" class="btn ${d.revisada ? '' : (d.religavel ? '' : 'btn-forte')} btn-revisar">
     ${d.revisada ? 'Reabrir revisão' : 'Marcar como revisada'}</button>
+  ${d.e_retentativa ? `<span class="status-escuta">é uma nova tentativa</span>` : ''}
   ${d.documentos ? `<span class="status-escuta">Documentos solicitados por ${esc(d.documentos.canal)}</span>` : ''}
-  <span class="status-escuta"></span></div>`;
+  <span class="status-escuta status-religar"></span></div>`;
 
 function ligarAcoes(alvo, el, id){
   alvo.querySelector('.btn-escutar')?.addEventListener('click', async ev => {
@@ -929,6 +931,30 @@ function ligarAcoes(alvo, el, id){
       return;
     }
     prontos.delete(id); atualizar();
+  });
+
+  alvo.querySelector('.btn-religar')?.addEventListener('click', async ev => {
+    ev.stopPropagation();
+    const b = ev.currentTarget;
+    const status = alvo.querySelector('.status-religar');
+    b.disabled = true; b.textContent = 'Discando…';
+    try{
+      const r = await api(`/calls/${id}/religar`, { method:'POST' });
+      const d = await r.json();
+      if (r.status === 202) {
+        status.innerHTML = `<span style="color:var(--espera)">fora da janela de atendimento (8h–20h)</span>`;
+        b.disabled = false; b.textContent = 'Ligar de novo';
+      } else if (!r.ok) {
+        status.innerHTML = `<span style="color:var(--alerta)">${esc(d.mensagem ?? 'não consegui ligar')}</span>`;
+        b.disabled = false; b.textContent = 'Ligar de novo';
+      } else {
+        status.textContent = 'nova ligação disparada';
+        atualizar();
+      }
+    }catch{
+      status.innerHTML = `<span style="color:var(--alerta)">sem resposta do servidor</span>`;
+      b.disabled = false; b.textContent = 'Ligar de novo';
+    }
   });
 
   alvo.querySelector('.btn-revisar')?.addEventListener('click', async ev => {

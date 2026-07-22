@@ -691,3 +691,27 @@ E confira a memoria da VPS durante o build:
 
     free -m
     docker stats --no-stream
+
+
+---
+
+## Ligar de novo com os mesmos dados
+
+No detalhe de uma chamada que não foi atendida, aparece **Ligar de novo**. Ele
+reusa o formulário inteiro — nada é redigitado — e dispara uma ligação nova.
+
+Só aparece quando faz sentido tentar de novo: desligou, sem contato, não é o
+titular, recusou a gravação, ou você encerrou manualmente. Não aparece em
+concluída (já foi atendida) nem em transferida (já foi para humano).
+
+A ligação nova é independente e entra na lista como qualquer outra. Ela guarda
+o vínculo com a original no campo `tentativa_de`, e mostra "é uma nova
+tentativa" no detalhe — assim o histórico não se perde.
+
+Respeita a janela de atendimento: fora de 8h-20h, avisa em vez de discar.
+
+### Diferença para o reagendamento da fila
+
+A fila reagenda sozinha quem ela mesma discou, com espera entre tentativas. O
+**Ligar de novo** é manual e imediato, para quando você olha uma chamada
+específica e decide tentar na hora. Os dois coexistem sem conflito.

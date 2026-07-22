@@ -3,6 +3,7 @@ import { supabase } from '../services/supabase.js';
 import { voz } from '../services/voice-provider.js';
 import { normalizar } from '../services/transcricao.js';
 import { FLUXOS, fluxoPadrao } from '../agent/fluxos.js';
+import { RELIGAVEIS } from './religar.js';
 import { ariConfigurado, desligarPorTelefone } from '../services/asterisk.js';
 
 /** Status em que a chamada acabou de vez — só aí o cache vale. */
@@ -115,6 +116,8 @@ export async function rotasConversa(app: FastifyInstance) {
         ? { canal: c.doc_canal, enviado_em: c.doc_enviado_em }
         : null,
       observacao: c.observacao ?? null,
+      religavel: encerrada && RELIGAVEIS.includes(c.status),
+      e_retentativa: Boolean(c.tentativa_de),
 
       // Campos que só existem em alguns fluxos. O painel mostra o que vier.
       resultado: [
