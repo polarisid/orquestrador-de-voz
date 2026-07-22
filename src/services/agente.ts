@@ -50,7 +50,12 @@ export async function aplicarTransbordo(destino: string) {
     method: 'PATCH',
     headers: { 'content-type': 'application/json', 'xi-api-key': chave },
     body: JSON.stringify({
-      conversation_config: { agent: { prompt: { built_in_tools: tools(destino) } } },
+      conversation_config: {
+        // reasoning_effort:null limpa um campo que o gemini-flash não aceita e
+        // que, se ficou preso de um LLM anterior, faz a API rejeitar qualquer
+        // PATCH que toque em prompt (como este, que ajusta as tools).
+        agent: { prompt: { built_in_tools: tools(destino), reasoning_effort: null } },
+      },
     }),
   });
 

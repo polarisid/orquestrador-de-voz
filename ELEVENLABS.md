@@ -875,3 +875,24 @@ agente na hora, sem redeploy.
 
 Se o agente começar a atropelar o cliente, suba a espera meio segundo. É o único
 ajuste com contrapartida — a prioridade de áudio é ganho quase puro.
+
+
+---
+
+## "Reasoning effort is not supported for this LLM"
+
+O `atualizar-agente` falha com esse erro 400 quando o agente tem um
+`reasoning_effort` gravado que o `gemini-2.0-flash` não aceita. Fica preso de um
+LLM anterior ou de um ajuste no painel, e daí qualquer PATCH que toque no prompt
+é rejeitado inteiro.
+
+Os scripts agora mandam `reasoning_effort: null` junto, o que limpa o campo. Se
+mesmo assim persistir (algumas versões da API ignoram null), rode o conserto
+pontual, que tenta valores alternativos:
+
+    npm run corrigir-llm
+
+Depois dele, `npm run atualizar-agente` normalmente.
+
+Se nem isso resolver, ajuste à mão no painel: no agente, seção do LLM, confirme
+que está em **Gemini 2.0 Flash** e que não há esforço de raciocínio ativado.

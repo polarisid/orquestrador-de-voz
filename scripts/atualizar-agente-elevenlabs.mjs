@@ -117,6 +117,11 @@ const corpo = {
         llm: 'gemini-2.0-flash',
         temperature: 0.2,
         max_tokens: 250,
+        // O gemini-flash nao suporta esforco de raciocinio. Se o agente ja teve
+        // isso configurado (outro LLM antes, ou ajuste no painel), o valor fica
+        // gravado e a API rejeita o PATCH inteiro com "Reasoning effort is not
+        // supported for this LLM". Zerar aqui limpa o campo junto.
+        reasoning_effort: null,
         // Garante a tool nativa de encerrar, que nao vem em agente criado por API.
         built_in_tools: {
           // System tool exige o objeto completo — nao basta {}. O campo

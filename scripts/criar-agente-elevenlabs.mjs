@@ -310,6 +310,7 @@ const agente = await api('/convai/agents/create', {
       prompt: {
         prompt: PROMPT,
         llm: 'gemini-2.0-flash',
+        reasoning_effort: null,
         temperature: 0.3,
         tool_ids: ids,
         // Sem isto o agente termina de falar e FICA NA LINHA. A tool nativa
