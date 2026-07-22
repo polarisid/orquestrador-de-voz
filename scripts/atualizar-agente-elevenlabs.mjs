@@ -93,16 +93,30 @@ Nunca afirme que o reparo e coberto pela garantia — depende da nota fiscal e d
 Se logo no inicio voce ouvir uma mensagem automatica de secretaria eletronica ou caixa postal (ex: "grave sua mensagem apos o sinal", "a pessoa nao esta disponivel", "numero nao existe"), NAO deixe recado nem tente transferir: chame encerrar_triagem com status caixa_postal e encerre imediatamente.
 Se o cliente pedir para falar com uma pessoa, ou demonstrar irritacao, chame transferir_humano imediatamente, sem argumentar. Logo depois use a ferramenta de transferencia para passar a ligacao ao atendimento: avise "vou te transferir agora" e transfira. Nunca prometa transferencia sem executar.`;
 
-const PRIMEIRA_FALA =
-  'Ola! Aqui e o assistente da Smart Center Aracaju, assistencia autorizada Samsung. Estou ligando sobre a ordem de servico {{os_numero}}. Esta ligacao e gravada para registro do atendimento. Posso continuar?';
+// VAZIO de proposito. Se o agente falar automaticamente ao conectar, ele
+// atropela a caixa postal — fala por cima de "grave sua mensagem". Vazio faz
+// ele ESPERAR a outra ponta falar primeiro: se for "alo" de gente, ele se
+// apresenta (o roteiro manda); se for gravacao, ele encerra. Isso resolve o
+// caso do print, onde o agente comecou a conversa com a secretaria eletronica.
+const PRIMEIRA_FALA = '';
 
 const corpo = {
   conversation_config: {
     agent: {
       language: 'pt',
+      // String vazia faz o agente aguardar a outra ponta antes de falar.
       first_message: PRIMEIRA_FALA,
+      // Garante que a abertura do roteiro (apresentacao) seja usada quando
+      // for gente atendendo, mesmo com first_message vazio.
       prompt: {
         prompt: PROMPT,
+        // LLM mais rapido disponivel. O gargalo de latencia mais comum e o
+        // TAMANHO da resposta: 500 caracteres levam 4-6x mais para virar audio
+        // que 80. max_tokens baixo corta isso na fonte, alem do roteiro ja
+        // pedir frases curtas.
+        llm: 'gemini-2.0-flash',
+        temperature: 0.2,
+        max_tokens: 250,
         // Garante a tool nativa de encerrar, que nao vem em agente criado por API.
         built_in_tools: {
           // System tool exige o objeto completo — nao basta {}. O campo
@@ -148,7 +162,18 @@ const corpo = {
     tts: {
       ...(VOICE ? { voice_id: VOICE } : {}),
       model_id: 'eleven_flash_v2_5',
+      // Maxima prioridade a velocidade (0-4). 4 e o mais rapido; pode
+      // deixar a primeira silaba levemente menos suave, aceitavel numa
+      // ligacao onde responder rapido importa mais que perfeicao de audio.
+      optimize_streaming_latency: 4,
     },
+    // Quanto o agente espera de silencio antes de assumir que o cliente
+    // terminou de falar. Mais baixo = responde mais rapido, mas corta quem
+    // fala pausado. 0.5s e um meio-termo bom para telefonia brasileira.
+    // turn_timeout menor = o agente comeca a responder mais cedo depois que
+    // o cliente para de falar. 2s corta menos que valores agressivos, mas ja
+    // e bem mais rapido que os 7s anteriores.
+    turn: { turn_timeout: 2, silence_end_call_timeout: 20, mode: 'turn' },
   },
 };
 

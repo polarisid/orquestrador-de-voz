@@ -246,6 +246,18 @@ audio{width:100%}
 .nivel{display:inline-flex;align-items:flex-end;gap:2px;height:14px;margin-left:3px;vertical-align:-2px}
 .nivel i{width:3px;background:currentColor;border-radius:1px;height:3px}
 .btn-escutar[data-ligado="1"]{background:var(--sinal);border-color:var(--sinal);color:#fff}
+input[type=range]{width:100%;accent-color:var(--sinal);margin:2px 0}
+label > span b{color:var(--sinal);font-family:'IBM Plex Mono',monospace}
+.chamando{
+  display:flex;align-items:center;gap:10px;padding:10px 18px 0;
+  font-size:13px;color:var(--aco);border-top:1px solid var(--linha);margin-top:2px;
+}
+.chamando .btn-escutar{margin-left:auto;padding:5px 11px;font-size:12.5px}
+.ring{width:9px;height:9px;border-radius:50%;border:2px solid var(--sinal);flex:none}
+@media (prefers-reduced-motion:no-preference){
+  .ring{animation:tocando 1s ease-in-out infinite}
+}
+@keyframes tocando{0%,100%{transform:scale(0.7);opacity:.4}50%{transform:scale(1);opacity:1}}
 
 /* ===================== gaveta ===================== */
 .gaveta{
@@ -457,11 +469,28 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
       <span class="estado" id="estado-transbordo"></span>
     </div>
 
-    <p class="explica" style="margin-top:26px;padding-top:18px;border-top:1px solid var(--linha)">
-      <strong>Um DID é mais robusto que um ramal.</strong> A central distribui para quem estiver livre; o ramal amarra o transbordo a uma pessoa, e quando ela sai de férias você descobre pelo cliente.
+    <p class="explica" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--linha)">
+      <strong>Um DID é mais robusto que um ramal.</strong> A central distribui para quem estiver livre; o ramal amarra o transbordo a uma pessoa.
     </p>
-    <p class="explica">
-      <strong>Transferência consome um segundo canal.</strong> Com um único canal no tronco, ela pode falhar por falta de linha — justamente com o cliente que já estava irritado.
+
+    <p class="rotulo" style="margin-top:28px">Velocidade de resposta</p>
+    <p class="explica">Quão rápido o agente responde. Salvar aplica no agente na hora.</p>
+
+    <label><span>Espera antes de responder — <b id="v-turn">2,0</b>s</span>
+      <input type="range" id="lat-turn" min="1" max="6" step="0.5" value="2">
+      <small class="dica">Quanto o agente espera o cliente parar de falar. Menor responde mais rápido; muito baixo corta quem fala pausado. Comece em 2s.</small></label>
+
+    <label><span>Prioridade de velocidade do áudio — <b id="v-stream">4</b></span>
+      <input type="range" id="lat-stream" min="0" max="4" step="1" value="4">
+      <small class="dica">0 é o áudio mais suave, 4 é o mais rápido. Em ligação, 4 quase sempre vale mais que a suavidade.</small></label>
+
+    <div class="barra-acoes">
+      <button class="btn btn-forte" id="btn-salvar-latencia">Salvar e aplicar</button>
+      <span class="estado" id="estado-latencia"></span>
+    </div>
+
+    <p class="explica" style="margin-top:18px">
+      <strong>Transferência consome um segundo canal.</strong> Com um único canal no tronco, ela pode falhar por falta de linha.
     </p>
   </div>
 </aside>
@@ -658,6 +687,11 @@ function cartaoAoVivo(c){
       const cls = n < i ? 'feita' : n === i ? 'agora' : '';
       return `<div class="etapa ${cls}"><em>${esc(e.rotulo)}</em></div>`;
     }).join('')}</div>
+    ${c.status === 'discando' ? `<div class="chamando">
+      <span class="ring"></span> Chamando o celular…
+      <button type="button" class="btn btn-escutar btn-escutar-cartao" data-ligado="0" data-id="${c.id}">
+        Ouvir <span class="nivel"><i></i><i></i><i></i><i></i></span></button>
+    </div>` : ''}
     <div class="detalhe" hidden></div>
   </article>`;
 }
@@ -757,7 +791,19 @@ function sincronizar(container, itens, render, seletor){
 }
 
 /* ============================= detalhe ============================= */
+// Escuta direto do cartão, durante o toque, sem abrir o detalhe.
 document.querySelector('main').addEventListener('click', ev => {
+  const bc = ev.target.closest('.btn-escutar-cartao');
+  if (bc) {
+    ev.stopPropagation();
+    const id = bc.dataset.id;
+    const status = bc.parentElement;
+    if (escutas.get(id)) { escutas.get(id).desligar(); escutas.delete(id); return; }
+    const e = new Escuta(id, bc, { get textContent(){return '';}, set textContent(v){} });
+    escutas.set(id, e);
+    e.ligar().catch(() => {});
+    return;
+  }
   if (ev.target.closest('.detalhe')) return;
   const el = ev.target.closest('.linha, .cartao');
   if (!el) return;
@@ -1161,10 +1207,43 @@ const estadoTransbordo = (txt, erro) => {
   el.className = 'estado' + (erro ? ' alerta' : '');
 };
 
+const vTurn = document.getElementById('lat-turn');
+const vStream = document.getElementById('lat-stream');
+const fmtTurn = v => Number(v).toFixed(1).replace('.', ',');
+vTurn.addEventListener('input', () => { document.getElementById('v-turn').textContent = fmtTurn(vTurn.value); });
+vStream.addEventListener('input', () => { document.getElementById('v-stream').textContent = vStream.value; });
+
+const estadoLatencia = (txt, erro) => {
+  const el = document.getElementById('estado-latencia');
+  el.textContent = txt;
+  el.className = 'estado' + (erro ? ' alerta' : '');
+};
+
+document.getElementById('btn-salvar-latencia').addEventListener('click', async ev => {
+  const b = ev.currentTarget;
+  b.disabled = true; b.textContent = 'Aplicando…';
+  try{
+    const r = await api('/configuracao/latencia', {
+      method:'PUT', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ streaming: Number(vStream.value), turn_timeout: Number(vTurn.value) }),
+    });
+    const d = await r.json();
+    if (!r.ok) estadoLatencia(d.mensagem ?? d.erro, true);
+    else estadoLatencia(`aplicado em ${new Date(d.aplicado_em).toLocaleString('pt-BR')}`);
+  }catch{ estadoLatencia('sem resposta do servidor', true); }
+  b.disabled = false; b.textContent = 'Salvar e aplicar';
+});
+
 async function carregarAjustes(){
   try{
     const d = await (await api('/configuracao')).json();
     document.getElementById('transbordo').value = d.transbordo ?? '';
+    vTurn.value = d.latencia_turn ?? 2;
+    vStream.value = d.latencia_streaming ?? 4;
+    document.getElementById('v-turn').textContent = fmtTurn(vTurn.value);
+    document.getElementById('v-stream').textContent = vStream.value;
+    if (d.latencia_aplicada_em)
+      estadoLatencia(`aplicado em ${new Date(d.latencia_aplicada_em).toLocaleString('pt-BR')}`);
     if (!d.agente_configurado) estadoTransbordo('agente da ElevenLabs não configurado', true);
     else if (d.transbordo_aplicado_em)
       estadoTransbordo(`aplicado em ${new Date(d.transbordo_aplicado_em).toLocaleString('pt-BR')}`);

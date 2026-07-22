@@ -45,6 +45,10 @@ createServer(async (req, res) => {
     console.log('system tools:', Object.keys(t).join(', ') || '(nenhuma)');
     const tr = t.transfer_to_number?.params?.transfers?.[0]?.transfer_destination;
     if (tr) console.log('transbordo:', JSON.stringify(tr));
+    const turn = json.conversation_config?.agent?.turn?.turn_timeout;
+    const stream = json.conversation_config?.tts?.optimize_streaming_latency;
+    if (turn !== undefined || stream !== undefined)
+      console.log('latencia: turn=' + turn + ' streaming=' + stream);
     res.end(JSON.stringify({ agent_id: 'mock_agent' }));
     return;
   }

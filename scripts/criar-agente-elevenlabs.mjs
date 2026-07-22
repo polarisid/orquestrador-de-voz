@@ -284,8 +284,11 @@ Nunca afirme que o reparo e coberto pela garantia — depende da nota fiscal e d
 Se logo no inicio voce ouvir uma mensagem automatica de secretaria eletronica ou caixa postal (ex: "grave sua mensagem apos o sinal", "a pessoa nao esta disponivel", "numero nao existe"), NAO deixe recado nem tente transferir: chame encerrar_triagem com status caixa_postal e encerre imediatamente.
 Se o cliente pedir para falar com uma pessoa, ou demonstrar irritacao, chame transferir_humano imediatamente, sem argumentar. Logo depois use a ferramenta de transferencia para passar a ligacao ao atendimento: avise "vou te transferir agora" e transfira. Nunca prometa transferencia sem executar.`;
 
-const PRIMEIRA_FALA =
-  'Ola, bom dia! Aqui e o assistente da Smart Center Aracaju, assistencia autorizada Samsung. Estou ligando sobre a ordem de servico {{os_numero}}. Esta ligacao e gravada para registro do atendimento. Posso continuar?';
+// String vazia: o agente aguarda a outra ponta falar antes de se apresentar.
+// Sem isso, ele despeja a apresentacao inteira na secretaria eletronica antes
+// de perceber que caiu em caixa postal. A apresentacao vem do roteiro, quando
+// houver uma pessoa respondendo.
+const PRIMEIRA_FALA = '';
 
 // ---------------------------------------------------------------------------
 

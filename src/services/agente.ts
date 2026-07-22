@@ -56,3 +56,36 @@ export async function aplicarTransbordo(destino: string) {
 
   if (!r.ok) throw new Error(`elevenlabs ${r.status}: ${(await r.text()).slice(0, 400)}`);
 }
+
+/**
+ * Aplica os parâmetros de latência no agente.
+ *
+ * São dois botões com efeito real e trade-off claro:
+ *  - streaming (0-4): quanto o TTS prioriza velocidade sobre suavidade
+ *  - turn_timeout (s): quanto o agente espera o cliente parar de falar antes
+ *    de responder. Menor = mais ágil, mas corta quem fala pausado.
+ *
+ * Ficam no painel porque o ponto certo se descobre ouvindo, não no código.
+ */
+export async function aplicarLatencia(streaming: number, turnTimeout: number) {
+  const agente = process.env.ELEVENLABS_AGENT_ID;
+  const chave = process.env.ELEVENLABS_API_KEY;
+  if (!agente || !chave) throw new Error('ELEVENLABS_AGENT_ID ou ELEVENLABS_API_KEY ausente');
+
+  const s = Math.max(0, Math.min(4, Math.round(streaming)));
+  const t = Math.max(1, Math.min(10, Number(turnTimeout)));
+
+  const r = await fetch(`${BASE()}/convai/agents/${agente}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', 'xi-api-key': chave },
+    body: JSON.stringify({
+      conversation_config: {
+        agent: { turn: { turn_timeout: t } },
+        tts: { optimize_streaming_latency: s },
+      },
+    }),
+  });
+
+  if (!r.ok) throw new Error(`elevenlabs ${r.status}: ${(await r.text()).slice(0, 400)}`);
+  return { streaming: s, turn_timeout: t };
+}

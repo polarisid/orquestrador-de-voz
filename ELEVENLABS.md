@@ -752,3 +752,126 @@ selo "correio de voz".
 
 Precisa de `npm run atualizar-agente` para o agente aprender a reconhecer, e do
 dialplan atualizado (`gerar-config.sh` + restart) para a camada do Asterisk.
+
+---
+
+## Mudanças de julho: produtos, pagamento, latência e caixa postal
+
+### Novas linhas de produto na retirada
+Televisão, Monitor, Tablet, Celular, SmartWatch, Fone de ouvido — além das
+linhas brancas que já existiam.
+
+### Pagamento: "Orçamento recusado"
+Para quando o cliente recusou o orçamento e o produto está disponível sem
+reparo. O agente deixa claro que não houve conserto, e se perguntarem de
+reembolso, responde que essa informação é passada na loja, na retirada — nunca
+promete valor.
+
+### Latência
+Já usávamos os modelos mais rápidos (Flash v2.5 para voz, Gemini Flash para o
+LLM). O que faltava e foi corrigido:
+- `max_tokens: 250` e temperatura baixa — o maior fator de latência é o TAMANHO
+  da resposta, não o modelo. Resposta curta vira áudio muito mais rápido.
+- Roteiro reforça brevidade: uma ou duas frases por vez.
+- `optimize_streaming_latency: 3` e turn detection ajustado.
+
+Rode `npm run atualizar-agente` para aplicar.
+
+### Alucinação de detalhe técnico (LED virava LCD)
+O modelo "arredondava" termos parecidos. Duas defesas:
+- Regra no topo do roteiro: dizer os dados EXATAMENTE como escritos, nunca
+  trocar um termo por outro parecido nem "traduzir".
+- A instrução antiga de "sem jargão técnico" na retirada era o que abria a
+  porta — foi reescrita para citar o serviço literal.
+
+### Caixa postal onde o agente começava a falar com a gravação
+Causa: a primeira fala do agente era automática ao conectar, então ele
+despejava a apresentação por cima do "grave sua mensagem".
+
+Correção: a primeira fala agora é VAZIA. O agente espera a outra ponta falar.
+Se for um "alô" de pessoa, ele se apresenta (o roteiro manda). Se for uma
+gravação, ele reconhece e encerra com status `caixa_postal`, sem deixar recado.
+
+Precisa de `npm run atualizar-agente`.
+
+---
+
+## Ainda pendente: ouvir o telefone chamando
+
+Você pediu para, enquanto a ligação está tentando, ouvir o celular chamando —
+o toque, o "tá chamando".
+
+Isso não dá para entregar com o desenho atual, e vale entender por quê. Hoje
+**a ElevenLabs origina** a chamada pela SIP trunk: ela disca e conecta o agente
+assim que a operadora atende. O Asterisk só repassa o áudio depois. Não existe
+um ponto onde o toque da chamada passe por nós antes de alguém atender.
+
+Para ouvir o telefone chamando, o caminho de saída precisa inverter: **o
+Asterisk origina** a chamada (aí o toque passa por ele e dá para transmitir ao
+painel, como já fazemos com a escuta ao vivo), espera atenderem, e só então
+conecta a ElevenLabs.
+
+Esse mesmo redesenho resolveria de forma definitiva a caixa postal que atende:
+o Asterisk faz detecção de atendimento (AMD) e distingue humano de gravação
+antes de gastar o agente.
+
+É um passo dedicado — reescreve o disparo de saída. A detecção de caixa postal
+por roteiro (acima) cobre a maioria dos casos enquanto isso.
+
+
+---
+
+## Ajustes de conteúdo, latência e correio de voz
+
+### Linhas de produto da retirada
+Televisão, Monitor, Tablet, Celular, SmartWatch, Fone de ouvido. A triagem
+mantém a lista completa (inclui linha branca); a retirada usa só portáteis e
+telas.
+
+### Pagamento: "Orçamento recusado"
+Nova opção. O agente explica que o reparo NÃO foi feito porque o orçamento não
+foi aprovado, e o produto está disponível no mesmo estado. Se o cliente
+perguntar de reembolso, o agente não confirma nem nega valor: informa que essa
+informação é passada na loja, na retirada.
+
+### Latência
+Já estava otimizada; empurramos ao máximo: `optimize_streaming_latency: 4` e
+`turn_timeout: 2s` (era 7). O agente começa a responder mais cedo depois que o
+cliente para de falar. Rode `atualizar-agente` para aplicar.
+
+### Alucinação de detalhe técnico (LED virando LCD)
+O roteiro agora ordena repetir o serviço EXATAMENTE como está escrito, com o
+exemplo LED/LCD explícito. Simplificar é permitido ("troca de uma peça"),
+trocar por termo parecido não é.
+
+### Não iniciar conversa com a caixa postal
+A primeira fala do agente ficou vazia — ele aguarda a outra ponta falar antes
+de se apresentar. Se vier gravação em vez de "alô", ele reconhece e encerra sem
+gastar a apresentação. Precisa de `atualizar-agente`.
+
+### Ouvir o celular chamando
+Enquanto a chamada está discando, o cartão mostra "Chamando o celular…" com um
+botão **Ouvir**. Você acompanha o toque em tempo real, antes de alguém atender.
+Depende do ARI configurado, igual à escuta normal.
+
+
+---
+
+## Latência ajustável pelo painel
+
+Em **Ajustes**, seção "Velocidade de resposta". Dois controles, aplicados no
+agente na hora:
+
+**Espera antes de responder** (turn_timeout, 1–6s) — quanto o agente aguarda o
+cliente parar de falar antes de responder. Menor é mais ágil; muito baixo corta
+quem fala pausado. Comece em 2s e desça ouvindo.
+
+**Prioridade de velocidade do áudio** (0–4) — 0 é o áudio mais suave, 4 o mais
+rápido. Em ligação, 4 quase sempre compensa.
+
+Ficam no painel porque o ponto certo se acha ouvindo, não no código. O valor
+vive no banco e sobrepõe o padrão do `atualizar-agente`; salvar faz o PATCH no
+agente na hora, sem redeploy.
+
+Se o agente começar a atropelar o cliente, suba a espera meio segundo. É o único
+ajuste com contrapartida — a prioridade de áudio é ganho quase puro.
