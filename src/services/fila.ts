@@ -153,7 +153,7 @@ async function reprocessar(log: { info: Function }) {
     const c = porId.get(item.chamada_id);
     if (!c || ATIVOS.includes(c.status)) continue;
 
-    const semContato = ['sem_contato', 'reagendar', 'cliente_desligou'].includes(c.status);
+    const semContato = ['sem_contato', 'reagendar', 'cliente_desligou', 'caixa_postal'].includes(c.status);
     const tentativas = item.tentativas ?? 1;
 
     if (semContato && tentativas < MAX_TENTATIVAS) {

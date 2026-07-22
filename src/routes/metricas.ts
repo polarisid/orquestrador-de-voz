@@ -11,7 +11,7 @@ import { FLUXOS } from '../agent/fluxos.js';
  * cadastros estavam errados na OS.
  */
 const CONTATO = ['concluida', 'parcial', 'transferida', 'encerrada_pelo_operador', 'cliente_desligou'];
-const SEM_CONTATO = ['sem_contato', 'reagendar', 'recusou_gravacao', 'nao_e_o_titular'];
+const SEM_CONTATO = ['sem_contato', 'reagendar', 'recusou_gravacao', 'nao_e_o_titular', 'caixa_postal'];
 
 export async function rotasMetricas(app: FastifyInstance) {
   app.get<{ Querystring: { dias?: string } }>('/metricas', async (req) => {

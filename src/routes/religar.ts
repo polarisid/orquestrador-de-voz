@@ -6,7 +6,7 @@ import { FLUXOS } from '../agent/fluxos.js';
 /** Estados em que faz sentido tentar de novo: ninguém foi atendido de fato. */
 const RELIGAVEIS = [
   'sem_contato', 'cliente_desligou', 'reagendar',
-  'recusou_gravacao', 'nao_e_o_titular', 'encerrada_pelo_operador',
+  'recusou_gravacao', 'nao_e_o_titular', 'encerrada_pelo_operador', 'caixa_postal',
 ];
 
 /**

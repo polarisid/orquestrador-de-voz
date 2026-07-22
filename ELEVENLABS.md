@@ -715,3 +715,40 @@ Respeita a janela de atendimento: fora de 8h-20h, avisa em vez de discar.
 A fila reagenda sozinha quem ela mesma discou, com espera entre tentativas. O
 **Ligar de novo** é manual e imediato, para quando você olha uma chamada
 específica e decide tentar na hora. Os dois coexistem sem conflito.
+
+
+---
+
+## Correio de voz e número indisponível
+
+O agente caía em caixa postal, conversava com a gravação e ainda tentava
+transferir — minuto pago por uma secretária eletrônica. Agora há duas camadas,
+porque nenhuma pega todos os casos sozinha.
+
+### Camada 1 — Asterisk, pela sinalização
+
+Quando o número está morto (desligado, inexistente, fora de serviço), a
+operadora sinaliza pela causa do hangup **antes de qualquer áudio**. O dialplan
+detecta `CHANUNAVAIL` e `CONGESTION` no contexto `[sair]` e encerra na hora. É
+o caminho mais rápido e barato: a ligação nem chega a ser atendida.
+
+### Camada 2 — o agente, pela mensagem
+
+Quando a operadora **atende** e toca a gravação ("grave sua mensagem após o
+sinal"), para o Asterisk isso é uma chamada atendida como outra qualquer — ele
+não tem como distinguir. Aí quem pega é o agente: instruído a reconhecer as
+frases típicas de caixa postal logo no início e encerrar com status
+`caixa_postal`, sem deixar recado nem tentar transferir.
+
+A maioria dos casos no Brasil é este segundo — a operadora atende e toca o
+recado. Por isso a instrução no roteiro é a defesa principal; o Asterisk cobre
+o número morto.
+
+### O que acontece depois
+
+`caixa_postal` conta como sem contato nas métricas e é religável: quase sempre é
+questão de horário, e a fila reagenda sozinha, com espera. No painel aparece o
+selo "correio de voz".
+
+Precisa de `npm run atualizar-agente` para o agente aprender a reconhecer, e do
+dialplan atualizado (`gerar-config.sh` + restart) para a camada do Asterisk.

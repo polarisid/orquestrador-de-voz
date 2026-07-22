@@ -10,6 +10,7 @@ import { ariConfigurado, desligarPorTelefone } from '../services/asterisk.js';
 const ENCERRADOS = [
   'concluida', 'parcial', 'recusou_gravacao', 'cliente_desligou',
   'nao_e_o_titular', 'sem_contato', 'transferida', 'encerrada_pelo_operador',
+  'caixa_postal',
 ];
 
 /** Campos de cadastro que o cliente pode ter corrigido na ligação. */

@@ -193,7 +193,7 @@ export const TOOLS = [
           enum: [
             'concluida',
             'parcial',
-            'recusou_gravacao',
+            'recusou_gravacao', 'caixa_postal',
             'cliente_desligou',
             'nao_e_o_titular',
           ],

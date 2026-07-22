@@ -193,6 +193,22 @@ export async function executarTool(
     }
 
     case 'encerrar_triagem': {
+      // Correio de voz: encerra sem contato, para a fila poder reagendar.
+      if (args.status === 'caixa_postal') {
+        await supabase
+          .from('chamadas_triagem')
+          .update({
+            status: 'caixa_postal',
+            etapa: 'fim',
+            finalizada_em: new Date().toISOString(),
+            observacao: 'Caiu em correio de voz ou número indisponível.',
+          })
+          .eq('id', chamada.id);
+        await voz.encerrar(providerCallId);
+        desligarDepois(chamada.telefone, console);
+        return { fala: '' };
+      }
+
       await supabase
         .from('chamadas_triagem')
         .update({

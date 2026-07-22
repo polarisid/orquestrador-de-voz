@@ -33,10 +33,20 @@ exten => _[+]X.,1,Goto(sair,${EXTEN:1},1)
 exten => _X.,1,Goto(sair,${EXTEN},1)
 
 [sair]
+; A operadora sinaliza numero invalido/indisponivel pela CAUSA do hangup,
+; antes de qualquer audio. Detectar aqui e mais rapido e barato que esperar
+; o agente ouvir a gravacao da caixa postal.
+;   CHANUNAVAIL = numero inexistente, desligado ou fora de servico
+;   CONGESTION  = rede sem rota para o numero
+; Nos dois casos nao adianta insistir agora: encerra e deixa a fila decidir.
 exten => _X.,1,NoOp(ElevenLabs -> ${EXTEN})
  same => n,Set(CALLERID(num)=${CALLER_ID_SAIDA})
  same => n,Dial(PJSIP/${EXTEN}@ifalei,60)
- same => n,NoOp(Resultado: ${DIALSTATUS} / ${HANGUPCAUSE})
+ same => n,NoOp(Resultado: ${DIALSTATUS} / causa ${HANGUPCAUSE})
+ same => n,GotoIf($["${DIALSTATUS}" = "CHANUNAVAIL"]?ruim)
+ same => n,GotoIf($["${DIALSTATUS}" = "CONGESTION"]?ruim)
+ same => n,Hangup()
+ same => n(ruim),NoOp(NUMERO INVALIDO OU INDISPONIVEL: ${EXTEN} causa ${HANGUPCAUSE})
  same => n,Hangup()
 
 ; Qualquer coisa que nao casou acima cai aqui e fica registrada,
