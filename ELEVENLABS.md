@@ -896,3 +896,26 @@ Depois dele, `npm run atualizar-agente` normalmente.
 
 Se nem isso resolver, ajuste à mão no painel: no agente, seção do LLM, confirme
 que está em **Gemini 2.0 Flash** e que não há esforço de raciocínio ativado.
+
+
+---
+
+## Central de ligações — nova interface
+
+O painel virou uma central de operação, do tipo que fica aberta o dia inteiro.
+
+**Barra de status escura no topo.** Sempre visível, com os medidores que
+importam num relance: quantas ligações no ar (com indicador pulsante), quantas
+na fila, quantas esperando revisão, e a taxa de contato do dia. Atualizam
+sozinhos a cada poucos segundos.
+
+**Grade de cartões para o que está no ar.** Em telas largas, as ligações ativas
+ficam lado a lado em vez de empilhadas — dá para acompanhar várias de uma vez.
+Cada cartão mostra o trilho de etapas e, durante a discagem, o "Chamando o
+celular…" com o botão de ouvir.
+
+**Lista compacta para o histórico**, com busca, filtros com contadores e o
+detalhe que abre no lugar.
+
+Todos os controles de antes continuam: nova ligação, roteiros, ajustes,
+diagnóstico, escuta, desligar, religar. Só a apresentação mudou.

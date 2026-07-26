@@ -3,26 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mesa de triagem — Smart Center Aracaju</title>
+<title>Central de ligações — Smart Center Aracaju</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --papel:#F1F4F3;
+  --papel:#EEF1F0;
   --carta:#FFFFFF;
-  --tinta:#131E1D;
-  --aco:#5C6E6C;
-  --linha:#D6DDDB;
-  --linha-forte:#BCC7C4;
-  --sinal:#0E6B60;
-  --sinal-claro:#E2F0ED;
-  --alerta:#A93D24;
-  --alerta-claro:#FBEDE9;
-  --espera:#8A6A16;
-  --espera-claro:#FDF8EC;
-  --r:4px;
-  --largura:1360px;
+  --tinta:#111A19;
+  --aco:#5A6C6A;
+  --linha:#DCE3E1;
+  --linha-forte:#C2CCC9;
+  --sinal:#0C6B5F;
+  --sinal-claro:#E0EFEC;
+  --alerta:#B03E24;
+  --alerta-claro:#FBEBE6;
+  --espera:#8A6912;
+  --espera-claro:#FBF4E4;
+  --escuro:#0E1B1A;
+  --escuro-2:#162625;
+  --escuro-linha:#253736;
+  --escuro-txt:#B8C6C3;
+  --r:6px;
+  --largura:1440px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -35,86 +39,90 @@ body{
 button{font-family:inherit;cursor:pointer}
 :focus-visible{outline:2px solid var(--sinal);outline-offset:2px}
 
-/* ===================== barra superior ===================== */
-.topo{position:sticky;top:0;z-index:30;background:var(--carta);border-bottom:1px solid var(--linha)}
-.topo-interno{
-  max-width:var(--largura);margin:0 auto;padding:11px 24px;
-  display:flex;align-items:center;gap:16px;
+/* ===================== barra de status (escura, viva) ===================== */
+.central-topo{position:sticky;top:0;z-index:30;background:var(--escuro);color:#fff}
+.central-barra{
+  max-width:var(--largura);margin:0 auto;padding:10px 24px;
+  display:flex;align-items:center;gap:20px;
 }
-.marca{display:flex;align-items:baseline;gap:10px;flex:none}
-.marca h1{
-  font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
-  letter-spacing:-.01em;margin:0;white-space:nowrap;
+.central-marca{display:flex;align-items:center;gap:11px;flex:none}
+.central-marca .glifo{
+  width:30px;height:30px;border-radius:7px;flex:none;
+  background:linear-gradient(135deg,var(--sinal),#0a8c7a);
+  display:flex;align-items:center;justify-content:center;
 }
-.marca span{font-size:12.5px;color:var(--aco);white-space:nowrap}
+.central-marca .glifo svg{width:17px;height:17px}
+.central-marca h1{
+  font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;
+  margin:0;line-height:1.15;letter-spacing:-.01em;color:#fff;white-space:nowrap;
+}
+.central-marca .sub{font-size:11px;color:var(--escuro-txt);letter-spacing:.02em}
 
-.busca{position:relative;flex:1;max-width:340px}
-.busca input{
-  width:100%;padding:7px 34px 7px 30px;font-size:13.5px;
-  border:1px solid var(--linha);border-radius:var(--r);
-  background:var(--papel);color:var(--tinta);font-family:inherit;
+/* medidores ao vivo */
+.medidores{display:flex;align-items:center;gap:8px;flex:1;min-width:0;overflow:hidden}
+.medidor{
+  display:flex;align-items:center;gap:8px;padding:6px 13px;flex:none;
+  background:var(--escuro-2);border:1px solid var(--escuro-linha);border-radius:20px;
 }
-.busca input:focus{outline:2px solid var(--sinal);outline-offset:-1px;background:var(--carta)}
-.busca svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--aco)}
-.busca kbd{
-  position:absolute;right:8px;top:50%;transform:translateY(-50%);
-  font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--aco);
-  border:1px solid var(--linha);border-radius:3px;padding:0 4px;pointer-events:none;
-}
-.busca input:focus ~ kbd{display:none}
+.medidor .val{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;color:#fff}
+.medidor .lab{font-size:11px;color:var(--escuro-txt);letter-spacing:.03em}
+.medidor.no-ar .val{color:#3FD9C0}
+.medidor.no-ar{border-color:#0a5049}
+.batida{width:7px;height:7px;border-radius:50%;background:#3FD9C0;flex:none}
+@media (prefers-reduced-motion:no-preference){.batida.on{animation:bat 1.4s ease-in-out infinite}}
+@keyframes bat{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(63,217,192,.5)}50%{opacity:.5;box-shadow:0 0 0 5px rgba(63,217,192,0)}}
 
-.acoes-topo{display:flex;align-items:center;gap:8px;margin-left:auto;flex:none}
-.btn{
-  border:1px solid var(--linha);background:var(--carta);color:var(--tinta);
-  border-radius:var(--r);padding:7px 13px;font-size:13px;font-weight:500;
+.central-acoes{display:flex;align-items:center;gap:8px;margin-left:auto;flex:none}
+.btn-central{
+  border:1px solid var(--escuro-linha);background:var(--escuro-2);color:var(--escuro-txt);
+  border-radius:var(--r);padding:8px 13px;font-size:13px;font-weight:500;white-space:nowrap;
 }
-.btn:hover{background:var(--papel)}
-.btn-forte{
+.btn-central:hover{background:#1d2f2e;color:#fff}
+.btn-central.forte{
   background:var(--sinal);border-color:var(--sinal);color:#fff;
   font-family:'Space Grotesk',sans-serif;font-weight:700;
 }
-.btn-forte:hover{background:#0B5850;border-color:#0B5850}
-.btn-perigo{background:var(--alerta);border-color:var(--alerta);color:#fff;font-weight:600}
-.btn-perigo:hover{background:#8E3220;border-color:#8E3220}
-.btn-icone{padding:7px 9px;line-height:0}
-.usuario{font-size:12.5px;color:var(--aco);white-space:nowrap}
-@media (max-width:1080px){.usuario{display:none}}
-@media (max-width:720px){.marca span{display:none}.busca{max-width:none}}
+.btn-central.forte:hover{background:#0a8272}
+.btn-central svg{width:14px;height:14px;vertical-align:-2px;margin-right:5px}
+.central-usuario{font-size:12px;color:var(--escuro-txt);padding:0 4px;white-space:nowrap}
+@media (max-width:1180px){.central-usuario,.central-marca .sub{display:none}}
+@media (max-width:1024px){.rotulo-btn{display:none}.btn-central svg{margin-right:0}}
 
-/* ===================== navegação ===================== */
-.nav{max-width:var(--largura);margin:0 auto;padding:0 24px;display:flex;align-items:center}
-.nav button{
+/* navegação em segunda linha da barra escura */
+.central-nav{background:var(--escuro-2);border-top:1px solid var(--escuro-linha)}
+.central-nav-interno{max-width:var(--largura);margin:0 auto;padding:0 24px;display:flex}
+.central-nav button{
   background:none;border:0;border-bottom:2px solid transparent;
-  padding:12px 2px;margin-right:24px;color:var(--aco);
-  font-family:'Space Grotesk',sans-serif;font-weight:700;
-  font-size:12px;letter-spacing:.09em;text-transform:uppercase;
+  padding:11px 2px;margin-right:26px;color:var(--escuro-txt);
+  font-family:'Space Grotesk',sans-serif;font-weight:600;
+  font-size:12px;letter-spacing:.08em;text-transform:uppercase;
 }
-.nav button:hover{color:var(--tinta)}
-.nav button[aria-selected="true"]{color:var(--tinta);border-bottom-color:var(--sinal)}
-.contador{
-  font-family:'IBM Plex Mono',monospace;font-size:11px;
-  margin-left:6px;color:var(--sinal);letter-spacing:0;text-transform:none;
-}
+.central-nav button:hover{color:#fff}
+.central-nav button[aria-selected="true"]{color:#fff;border-bottom-color:#3FD9C0}
+.contador{font-family:'IBM Plex Mono',monospace;font-size:11px;margin-left:6px;color:#3FD9C0;letter-spacing:0;text-transform:none}
 
 main{max-width:var(--largura);margin:0 auto;padding:22px 24px 60px}
 [role="tabpanel"][hidden]{display:none}
 h2.secao{
   font-family:'Space Grotesk',sans-serif;font-size:11.5px;font-weight:700;
   letter-spacing:.09em;text-transform:uppercase;color:var(--aco);
-  margin:0 0 11px;display:flex;align-items:center;gap:8px;
+  margin:0 0 12px;display:flex;align-items:center;gap:8px;
 }
+h2.secao .conta{color:var(--sinal);font-family:'IBM Plex Mono',monospace}
 
-/* ===================== ao vivo ===================== */
+/* ===================== ao vivo — grade de cartões ===================== */
 .ponto{width:7px;height:7px;border-radius:50%;background:var(--sinal);flex:none;display:inline-block}
-@media (prefers-reduced-motion:no-preference){
-  .ponto.pulsa{animation:pulso 2s ease-in-out infinite}
-}
+@media (prefers-reduced-motion:no-preference){.ponto.pulsa{animation:pulso 2s ease-in-out infinite}}
 @keyframes pulso{0%,100%{opacity:1}50%{opacity:.3}}
 
-.aovivo-lista{display:grid;gap:12px;margin-bottom:30px}
+.aovivo-lista{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));
+  gap:14px;margin-bottom:32px;
+}
 .cartao{
   background:var(--carta);border:1px solid var(--linha);border-radius:var(--r);
-  border-left:3px solid var(--sinal);cursor:pointer;
+  border-top:3px solid var(--sinal);cursor:pointer;
+  box-shadow:0 1px 2px rgba(17,26,25,.04);
 }
 .cartao-topo{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;padding:15px 18px 0}
 .os{font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:15.5px;flex:none}
@@ -122,34 +130,27 @@ h2.secao{
 .direita{margin-left:auto;display:flex;align-items:center;gap:8px}
 .trilho{display:flex;gap:3px;padding:14px 18px 15px}
 .etapa{flex:1;padding-top:14px;position:relative;min-width:0}
-.etapa::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--linha)}
+.etapa::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--linha);border-radius:2px}
 .etapa.feita::before,.etapa.agora::before{background:var(--sinal)}
-@media (prefers-reduced-motion:no-preference){
-  .etapa.agora::before{animation:pulso 1.6s ease-in-out infinite}
-}
-.etapa em{
-  font-style:normal;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
-  color:var(--aco);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
+@media (prefers-reduced-motion:no-preference){.etapa.agora::before{animation:pulso 1.6s ease-in-out infinite}}
+.etapa em{font-style:normal;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--aco);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .etapa.feita em,.etapa.agora em{color:var(--tinta);font-weight:600}
+.chamando{display:flex;align-items:center;gap:10px;padding:10px 18px 0;font-size:13px;color:var(--aco);border-top:1px solid var(--linha);margin-top:2px}
+.chamando .btn-escutar{margin-left:auto;padding:5px 11px;font-size:12.5px}
+.ring{width:9px;height:9px;border-radius:50%;border:2px solid var(--sinal);flex:none}
+@media (prefers-reduced-motion:no-preference){.ring{animation:tocando 1s ease-in-out infinite}}
+@keyframes tocando{0%,100%{transform:scale(.7);opacity:.4}50%{transform:scale(1);opacity:1}}
 
 /* ===================== lista compacta ===================== */
 .filtros{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap}
-.chip-f{
-  border:1px solid var(--linha);background:var(--carta);border-radius:14px;
-  padding:4px 12px;font-size:12.5px;color:var(--aco);font-weight:500;
-}
+.chip-f{border:1px solid var(--linha);background:var(--carta);border-radius:18px;padding:5px 13px;font-size:12.5px;color:var(--aco);font-weight:500}
 .chip-f:hover{border-color:var(--linha-forte);color:var(--tinta)}
 .chip-f[aria-pressed="true"]{background:var(--tinta);border-color:var(--tinta);color:#fff}
 .chip-f b{font-family:'IBM Plex Mono',monospace;font-weight:500;margin-left:5px;opacity:.75}
-
-.lista{border:1px solid var(--linha);border-radius:var(--r);background:var(--carta);overflow:hidden}
+.lista{border:1px solid var(--linha);border-radius:var(--r);background:var(--carta);overflow:hidden;box-shadow:0 1px 2px rgba(17,26,25,.04)}
 .linha{border-bottom:1px solid var(--linha)}
 .linha:last-child{border-bottom:0}
-.linha-cab{
-  display:flex;align-items:center;gap:12px;padding:11px 16px;
-  width:100%;background:none;border:0;text-align:left;border-left:3px solid transparent;
-}
+.linha-cab{display:flex;align-items:center;gap:12px;padding:11px 16px;width:100%;background:none;border:0;text-align:left;border-left:3px solid transparent}
 .linha-cab:hover{background:var(--papel)}
 .linha[aria-expanded="true"] > .linha-cab{background:var(--papel);border-left-color:var(--sinal)}
 .linha-cab .os{font-size:14px}
@@ -157,15 +158,9 @@ h2.secao{
 .quando{font-size:12px;color:var(--aco);font-variant-numeric:tabular-nums;flex:none}
 .seta{color:var(--aco);flex:none;transition:transform .15s}
 .linha[aria-expanded="true"] .seta{transform:rotate(90deg)}
-@media (max-width:720px){
-  .linha-cab{flex-wrap:wrap;gap:8px}
-  .linha-cab .quem{flex-basis:100%;order:3}
-}
+@media (max-width:720px){.linha-cab{flex-wrap:wrap;gap:8px}.linha-cab .quem{flex-basis:100%;order:3}.aovivo-lista{grid-template-columns:1fr}}
 
-.selo{
-  font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-  padding:2px 7px;border-radius:2px;border:1px solid currentColor;flex:none;white-space:nowrap;
-}
+.selo{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;border:1px solid currentColor;flex:none;white-space:nowrap}
 .selo.ativa{color:var(--sinal);background:var(--sinal-claro)}
 .selo.feita{color:var(--aco)}
 .selo.espera{color:var(--espera);background:var(--espera-claro)}
@@ -175,59 +170,36 @@ h2.secao{
 .selo.gar-confirmar{color:var(--espera)}
 .selo.tipo{color:var(--aco);border-style:dashed}
 @media (max-width:900px){.selo.tipo,.selo.gar-dentro,.selo.gar-confirmar{display:none}}
-
-.vazio{
-  border:1px dashed var(--linha);border-radius:var(--r);
-  padding:38px 22px;text-align:center;color:var(--aco);font-size:14px;
-}
+.vazio{border:1px dashed var(--linha);border-radius:var(--r);padding:40px 22px;text-align:center;color:var(--aco);font-size:14px}
 .vazio strong{display:block;color:var(--tinta);font-weight:600;margin-bottom:5px}
 
 /* ===================== detalhe ===================== */
 .detalhe{padding:2px 18px 18px;border-top:1px solid var(--linha);cursor:default}
 .detalhe[hidden]{display:none}
 .carregando{font-size:13px;color:var(--aco);margin:14px 0}
-.bloco{margin:18px 0}
-.bloco:last-child{margin-bottom:0}
-.rotulo{
-  font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--aco);margin:0 0 8px;display:flex;align-items:center;gap:7px;
-}
-.resumo{
-  font-size:13.5px;line-height:1.6;margin:16px 0 0;padding:11px 13px;
-  background:var(--sinal-claro);border-radius:var(--r);color:#0A5049;
-}
-.pendencias{
-  border-left:3px solid var(--espera);background:var(--espera-claro);
-  padding:11px 14px;border-radius:0 var(--r) var(--r) 0;margin:16px 0 0;
-}
+.bloco{margin:18px 0}.bloco:last-child{margin-bottom:0}
+.rotulo{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--aco);margin:0 0 8px;display:flex;align-items:center;gap:7px}
+.resumo{font-size:13.5px;line-height:1.6;margin:16px 0 0;padding:11px 13px;background:var(--sinal-claro);border-radius:var(--r);color:#084a42}
+.pendencias{border-left:3px solid var(--espera);background:var(--espera-claro);padding:11px 14px;border-radius:0 var(--r) var(--r) 0;margin:16px 0 0}
 .pendencias ul{margin:0;padding-left:17px;font-size:13.5px;line-height:1.7;color:#6B5210}
-
 table.diff,table.tab{width:100%;border-collapse:collapse;font-size:13.5px}
-table.diff th,table.tab th{
-  text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--aco);font-weight:600;padding:0 10px 6px 0;border-bottom:1px solid var(--linha);
-}
+table.diff th,table.tab th{text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--aco);font-weight:600;padding:0 10px 6px 0;border-bottom:1px solid var(--linha)}
 table.diff td,table.tab td{padding:8px 10px 8px 0;border-bottom:1px solid var(--linha);vertical-align:top}
 table.diff tr:last-child td,table.tab tr:last-child td{border-bottom:0}
-.antes{color:var(--aco);text-decoration:line-through}
-.depois{font-weight:500}
-
+.antes{color:var(--aco);text-decoration:line-through}.depois{font-weight:500}
 .fatos{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px}
 .fato{border:1px solid var(--linha);border-radius:var(--r);padding:9px 11px}
 .fato .k{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--aco)}
 .fato .v{font-size:13.5px;margin-top:3px}
 .fato.alerta{border-color:var(--espera);background:var(--espera-claro)}
 .fato.alerta .v{color:#6B5210;font-weight:600}
-
 .hipotese{display:flex;align-items:center;gap:11px;margin-bottom:7px;font-size:13.5px}
 .barra{height:5px;background:var(--linha);border-radius:3px;width:84px;flex:none;overflow:hidden}
 .barra i{display:block;height:100%;background:var(--sinal)}
 .conf{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--aco);flex:none}
-
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{font-size:12px;padding:3px 9px;border:1px solid var(--linha);border-radius:12px}
 .chip.mono{font-family:'IBM Plex Mono',monospace;font-size:11.5px}
-
 audio{width:100%}
 .dialogo{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding-right:4px}
 .fala{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.5}
@@ -237,142 +209,114 @@ audio{width:100%}
 .fala.cliente{flex-direction:row-reverse}
 .fala.cliente .t{text-align:right}
 .fala.cliente .txt{border:1px solid var(--sinal)}
-
-.rodape-acoes{
-  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
-  margin-top:16px;padding-top:14px;border-top:1px solid var(--linha);
-}
+.rodape-acoes{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--linha)}
 .status-escuta{font-size:12.5px;color:var(--aco)}
 .nivel{display:inline-flex;align-items:flex-end;gap:2px;height:14px;margin-left:3px;vertical-align:-2px}
 .nivel i{width:3px;background:currentColor;border-radius:1px;height:3px}
 .btn-escutar[data-ligado="1"]{background:var(--sinal);border-color:var(--sinal);color:#fff}
 input[type=range]{width:100%;accent-color:var(--sinal);margin:2px 0}
 label > span b{color:var(--sinal);font-family:'IBM Plex Mono',monospace}
-.chamando{
-  display:flex;align-items:center;gap:10px;padding:10px 18px 0;
-  font-size:13px;color:var(--aco);border-top:1px solid var(--linha);margin-top:2px;
-}
-.chamando .btn-escutar{margin-left:auto;padding:5px 11px;font-size:12.5px}
-.ring{width:9px;height:9px;border-radius:50%;border:2px solid var(--sinal);flex:none}
-@media (prefers-reduced-motion:no-preference){
-  .ring{animation:tocando 1s ease-in-out infinite}
-}
-@keyframes tocando{0%,100%{transform:scale(0.7);opacity:.4}50%{transform:scale(1);opacity:1}}
+
+/* botões genéricos usados no detalhe/gavetas */
+.btn{border:1px solid var(--linha);background:var(--carta);color:var(--tinta);border-radius:var(--r);padding:7px 13px;font-size:13px;font-weight:500}
+.btn:hover{background:var(--papel)}
+.btn-forte{background:var(--sinal);border-color:var(--sinal);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700}
+.btn-forte:hover{background:#0a8272}
+.btn-perigo{background:var(--alerta);border-color:var(--alerta);color:#fff;font-weight:600}
+.btn-perigo:hover{background:#933320}
 
 /* ===================== gaveta ===================== */
-.gaveta{
-  position:fixed;top:0;bottom:0;right:0;width:min(460px,100%);z-index:50;
-  background:var(--carta);border-left:1px solid var(--linha);
-  display:flex;flex-direction:column;transform:translateX(100%);transition:transform .2s ease;
-}
+.gaveta{position:fixed;top:0;bottom:0;right:0;width:min(460px,100%);z-index:50;background:var(--carta);border-left:1px solid var(--linha);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .2s ease}
 .gaveta.larga{width:min(760px,100%)}
 .gaveta[data-aberta="1"]{transform:none}
 @media (prefers-reduced-motion:reduce){.gaveta{transition:none}}
-.gaveta-topo{
-  display:flex;align-items:center;gap:12px;padding:15px 20px;
-  border-bottom:1px solid var(--linha);flex:none;
-}
+.gaveta-topo{display:flex;align-items:center;gap:12px;padding:15px 20px;border-bottom:1px solid var(--linha);flex:none}
 .gaveta-topo h2{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;margin:0}
 .gaveta-corpo{padding:20px;overflow-y:auto;flex:1}
-.fundo{
-  position:fixed;inset:0;background:rgba(19,30,29,.35);z-index:40;
-  opacity:0;pointer-events:none;transition:opacity .2s;
-}
+.fundo{position:fixed;inset:0;background:rgba(14,27,26,.45);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
 .fundo[data-aberta="1"]{opacity:1;pointer-events:auto}
 
-/* ===================== formulário ===================== */
 label{display:block;margin-bottom:13px}
 label > span{display:block;font-size:12px;font-weight:500;color:var(--aco);margin-bottom:4px}
-input,select,textarea{
-  width:100%;padding:8px 10px;border:1px solid var(--linha);border-radius:var(--r);
-  background:var(--carta);color:var(--tinta);font-family:inherit;font-size:14px;
-}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--linha);border-radius:var(--r);background:var(--carta);color:var(--tinta);font-family:inherit;font-size:14px}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--sinal);outline-offset:-1px;border-color:var(--sinal)}
 textarea{resize:vertical;min-height:56px}
 .dupla{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dica{display:block;font-size:12px;color:var(--aco);margin-top:5px;line-height:1.45}
-.rotulo-com-acao{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.link{
-  background:none;border:0;padding:0;color:var(--sinal);font-size:12px;
-  font-weight:500;text-decoration:underline;text-underline-offset:2px;
-}
-.link:hover{color:#0B5850}
 .aviso{margin-top:12px;padding:9px 11px;border-radius:var(--r);font-size:13px;border:1px solid}
-.aviso.ok{background:var(--sinal-claro);border-color:#B4D8D1;color:#0A5049}
+.aviso.ok{background:var(--sinal-claro);border-color:#B4D8D1;color:#084a42}
 .aviso.erro{background:var(--alerta-claro);border-color:#EBC7BC;color:var(--alerta)}
 .aviso[hidden]{display:none}
 .explica{font-size:13px;color:var(--aco);margin:0 0 14px;line-height:1.6}
 code{font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:var(--papel);padding:1px 4px;border-radius:2px}
-
-/* ===================== fila e números ===================== */
-#fila-tabela,#roteiro{
-  width:100%;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.65;padding:12px;
-}
-#fila-tabela{min-height:170px}
-#roteiro{min-height:56vh}
+#fila-tabela,#roteiro{width:100%;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.65;padding:12px}
+#fila-tabela{min-height:170px}#roteiro{min-height:56vh}
 .barra-acoes{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:11px}
 .barra-acoes .estado{font-size:12.5px;color:var(--aco);margin-left:auto}
 .barra-acoes .estado.alerta{color:var(--espera);font-weight:600}
-
 .numeros{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:11px;margin-bottom:22px}
 .numero{border:1px solid var(--linha);border-radius:var(--r);padding:14px 16px;background:var(--carta)}
 .numero .n{font-family:'Space Grotesk',sans-serif;font-size:27px;font-weight:700;line-height:1.05}
 .numero .k{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--aco);margin-top:6px}
 .numero .obs{font-size:12px;color:var(--aco);margin-top:4px;line-height:1.4}
-.numero.destaque .n{color:var(--sinal)}
-.numero.alerta .n{color:var(--espera)}
+.numero.destaque .n{color:var(--sinal)}.numero.alerta .n{color:var(--espera)}
 
-/* ===================== diálogo ===================== */
-dialog{
-  border:1px solid var(--linha);border-radius:var(--r);padding:22px 24px;
-  max-width:640px;width:calc(100% - 40px);background:var(--carta);color:var(--tinta);font-family:inherit;
-}
-dialog::backdrop{background:rgba(19,30,29,.4)}
+dialog{border:1px solid var(--linha);border-radius:var(--r);padding:22px 24px;max-width:640px;width:calc(100% - 40px);background:var(--carta);color:var(--tinta);font-family:inherit}
+dialog::backdrop{background:rgba(14,27,26,.5)}
 dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;margin:0 0 4px}
 .veredito{padding:10px 12px;border-radius:var(--r);font-size:13.5px;line-height:1.55;margin-bottom:14px;border:1px solid}
-.veredito.bom{background:var(--sinal-claro);border-color:#B4D8D1;color:#0A5049}
+.veredito.bom{background:var(--sinal-claro);border-color:#B4D8D1;color:#084a42}
 .veredito.ruim{background:var(--alerta-claro);border-color:#EBC7BC;color:var(--alerta)}
 .linha-diag{display:flex;gap:12px;padding:7px 0;border-bottom:1px solid var(--linha);align-items:baseline}
 .linha-diag:last-child{border-bottom:0}
 .linha-diag b{font-weight:500;min-width:170px;color:var(--aco);font-size:12px}
 .linha-diag span{font-family:'IBM Plex Mono',monospace;font-size:12px;word-break:break-all}
-.ok{color:var(--sinal)}
-.nok{color:var(--alerta)}
+.ok{color:var(--sinal)}.nok{color:var(--alerta)}
 </style>
 </head>
 <body>
 
-<header class="topo">
-  <div class="topo-interno">
-    <div class="marca">
-      <h1>Mesa de triagem</h1>
-      <span>Smart Center Aracaju</span>
+<header class="central-topo">
+  <div class="central-barra">
+    <div class="central-marca">
+      <span class="glifo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></span>
+      <div>
+        <h1>Central de ligações</h1>
+        <div class="sub">Smart Center Aracaju</div>
+      </div>
     </div>
 
-    <div class="busca">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-        <circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/>
-      </svg>
-      <input id="busca" type="search" placeholder="Buscar OS, cliente ou telefone" autocomplete="off">
-      <kbd>/</kbd>
+    <div class="medidores" id="medidores">
+      <div class="medidor no-ar" id="med-noar" hidden>
+        <span class="batida on"></span>
+        <span class="val" id="m-noar">0</span><span class="lab">no ar</span>
+      </div>
+      <div class="medidor"><span class="val" id="m-fila">0</span><span class="lab">na fila</span></div>
+      <div class="medidor"><span class="val" id="m-revisar">0</span><span class="lab">a revisar</span></div>
+      <div class="medidor"><span class="val" id="m-contato">—</span><span class="lab">contato hoje</span></div>
     </div>
 
-    <div class="acoes-topo">
-      <button class="btn btn-forte" id="btn-nova">Nova ligação</button>
-      <button class="btn" id="btn-config">Roteiros</button>
-      <button class="btn" id="btn-ajustes">Ajustes</button>
-      <button class="btn" id="btn-diag">Diagnóstico</button>
-      <span class="usuario" id="usuario"></span>
-      <button class="btn" id="sair" hidden>Sair</button>
+    <div class="central-acoes">
+      <div class="busca" style="position:relative">
+        <input id="busca" type="search" placeholder="Buscar  /" autocomplete="off"
+          style="width:180px;padding:7px 11px;font-size:13px;border:1px solid var(--escuro-linha);border-radius:var(--r);background:var(--escuro-2);color:#fff">
+      </div>
+      <button class="btn-central forte" id="btn-nova">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="rotulo-btn">Nova ligação</span></button>
+      <button class="btn-central" id="btn-config"><span class="rotulo-btn">Roteiros</span></button>
+      <button class="btn-central" id="btn-ajustes"><span class="rotulo-btn">Ajustes</span></button>
+      <button class="btn-central" id="btn-diag"><span class="rotulo-btn">Diagnóstico</span></button>
+      <span class="central-usuario" id="usuario"></span>
+      <button class="btn-central" id="sair" hidden>Sair</button>
     </div>
   </div>
 
-  <nav class="nav" role="tablist">
-    <button role="tab" id="nav-chamadas" aria-controls="pnl-chamadas" aria-selected="true">
-      Chamadas <span class="contador" id="c-chamadas"></span></button>
-    <button role="tab" id="nav-fila" aria-controls="pnl-fila" aria-selected="false">
-      Fila <span class="contador" id="c-fila"></span></button>
-    <button role="tab" id="nav-numeros" aria-controls="pnl-numeros" aria-selected="false">Números</button>
+  <nav class="central-nav" role="tablist">
+    <div class="central-nav-interno">
+      <button role="tab" id="nav-chamadas" aria-controls="pnl-chamadas" aria-selected="true">Chamadas <span class="contador" id="c-chamadas"></span></button>
+      <button role="tab" id="nav-fila" aria-controls="pnl-fila" aria-selected="false">Fila <span class="contador" id="c-fila"></span></button>
+      <button role="tab" id="nav-numeros" aria-controls="pnl-numeros" aria-selected="false">Números</button>
+    </div>
   </nav>
 </header>
 
@@ -382,7 +326,6 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
       <h2 class="secao"><span class="ponto pulsa"></span>No ar</h2>
       <div class="aovivo-lista" id="aovivo"></div>
     </section>
-
     <section>
       <h2 class="secao">Recentes</h2>
       <div class="filtros" id="filtros">
@@ -418,30 +361,22 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
 <div class="fundo" id="fundo"></div>
 
 <aside class="gaveta" id="gaveta-nova" aria-hidden="true">
-  <div class="gaveta-topo">
-    <h2>Nova ligação</h2>
-    <button class="btn" style="margin-left:auto" data-fechar>Fechar</button>
-  </div>
+  <div class="gaveta-topo"><h2>Nova ligação</h2><button class="btn" style="margin-left:auto" data-fechar>Fechar</button></div>
   <div class="gaveta-corpo">
     <label><span class="rotulo-com-acao">Tipo de ligação
-        <button type="button" class="link" data-roteiro="sel-fluxo">Ver roteiro</button></span>
+      <button type="button" class="link" data-roteiro="sel-fluxo" style="background:none;border:0;color:var(--sinal);font-size:12px;text-decoration:underline;cursor:pointer">Ver roteiro</button></span>
       <select id="sel-fluxo"></select>
       <small class="dica" id="dica-fluxo"></small></label>
     <form id="form"><div id="campos"></div>
       <button type="submit" class="btn btn-forte" style="width:100%;padding:11px" id="btn-ligar">Ligar para o cliente</button>
-      <p class="aviso" id="aviso" hidden></p>
-    </form>
+      <p class="aviso" id="aviso" hidden></p></form>
   </div>
 </aside>
 
 <aside class="gaveta larga" id="gaveta-config" aria-hidden="true">
-  <div class="gaveta-topo">
-    <h2>Roteiro</h2>
-    <select id="roteiro-fluxo" style="width:auto"></select>
-    <button class="btn" style="margin-left:auto" data-fechar>Fechar</button>
-  </div>
+  <div class="gaveta-topo"><h2>Roteiro</h2><select id="roteiro-fluxo" style="width:auto"></select><button class="btn" style="margin-left:auto" data-fechar>Fechar</button></div>
   <div class="gaveta-corpo">
-    <p class="explica">É isto que o agente recebe antes de discar. Use <code>{{campo}}</code> para os dados da OS — por exemplo <code>{{os_numero}}</code>. <strong>Salvar</strong> faz valer para todas as próximas ligações deste tipo.</p>
+    <p class="explica">É isto que o agente recebe antes de discar. Use <code>{{campo}}</code> para os dados da OS. <strong>Salvar</strong> faz valer para todas as próximas ligações deste tipo.</p>
     <textarea id="roteiro" spellcheck="false"></textarea>
     <div class="barra-acoes">
       <button class="btn btn-forte" id="btn-salvar">Salvar como padrão</button>
@@ -452,46 +387,28 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
 </aside>
 
 <aside class="gaveta" id="gaveta-ajustes" aria-hidden="true">
-  <div class="gaveta-topo">
-    <h2>Ajustes</h2>
-    <button class="btn" style="margin-left:auto" data-fechar>Fechar</button>
-  </div>
+  <div class="gaveta-topo"><h2>Ajustes</h2><button class="btn" style="margin-left:auto" data-fechar>Fechar</button></div>
   <div class="gaveta-corpo">
     <p class="rotulo">Transbordo para humano</p>
-    <p class="explica">Para onde o agente transfere quando o cliente pede um atendente. Salvar aplica direto no agente — não precisa refazer o deploy.</p>
-
+    <p class="explica">Para onde o agente transfere quando o cliente pede um atendente. Salvar aplica direto no agente.</p>
     <label><span>Destino</span>
       <input id="transbordo" placeholder="1001 ou +557933000000" autocomplete="off">
-      <small class="dica">Ramal de 3 a 5 dígitos, número em E.164, ou um SIP URI completo. Deixe vazio para desligar a transferência.</small></label>
+      <small class="dica">Ramal de 3 a 5 dígitos, número em E.164, ou um SIP URI. Vazio desliga a transferência.</small></label>
+    <div class="barra-acoes"><button class="btn btn-forte" id="btn-salvar-transbordo">Salvar e aplicar</button><span class="estado" id="estado-transbordo"></span></div>
 
-    <div class="barra-acoes">
-      <button class="btn btn-forte" id="btn-salvar-transbordo">Salvar e aplicar</button>
-      <span class="estado" id="estado-transbordo"></span>
-    </div>
-
-    <p class="explica" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--linha)">
-      <strong>Um DID é mais robusto que um ramal.</strong> A central distribui para quem estiver livre; o ramal amarra o transbordo a uma pessoa.
-    </p>
+    <p class="explica" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--linha)"><strong>Um DID é mais robusto que um ramal.</strong> A central distribui para quem estiver livre.</p>
 
     <p class="rotulo" style="margin-top:28px">Velocidade de resposta</p>
     <p class="explica">Quão rápido o agente responde. Salvar aplica no agente na hora.</p>
-
     <label><span>Espera antes de responder — <b id="v-turn">2,0</b>s</span>
       <input type="range" id="lat-turn" min="1" max="6" step="0.5" value="2">
-      <small class="dica">Quanto o agente espera o cliente parar de falar. Menor responde mais rápido; muito baixo corta quem fala pausado. Comece em 2s.</small></label>
-
+      <small class="dica">Menor responde mais rápido; muito baixo corta quem fala pausado. Comece em 2s.</small></label>
     <label><span>Prioridade de velocidade do áudio — <b id="v-stream">4</b></span>
       <input type="range" id="lat-stream" min="0" max="4" step="1" value="4">
-      <small class="dica">0 é o áudio mais suave, 4 é o mais rápido. Em ligação, 4 quase sempre vale mais que a suavidade.</small></label>
+      <small class="dica">0 é o áudio mais suave, 4 o mais rápido. Em ligação, 4 quase sempre vale mais.</small></label>
+    <div class="barra-acoes"><button class="btn btn-forte" id="btn-salvar-latencia">Salvar e aplicar</button><span class="estado" id="estado-latencia"></span></div>
 
-    <div class="barra-acoes">
-      <button class="btn btn-forte" id="btn-salvar-latencia">Salvar e aplicar</button>
-      <span class="estado" id="estado-latencia"></span>
-    </div>
-
-    <p class="explica" style="margin-top:18px">
-      <strong>Transferência consome um segundo canal.</strong> Com um único canal no tronco, ela pode falhar por falta de linha.
-    </p>
+    <p class="explica" style="margin-top:18px"><strong>Transferência consome um segundo canal.</strong> Com um único canal no tronco, ela pode falhar por falta de linha.</p>
   </div>
 </aside>
 
@@ -503,6 +420,7 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
 </dialog>
 
 <script type="module">
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 /* ============================= sessão ============================= */
@@ -725,6 +643,20 @@ async function atualizar(){
     bs[2].textContent = feitas.filter(c => PROBLEMA.includes(c.status)).length || '';
     document.getElementById('c-chamadas').textContent = ativas.length ? `${ativas.length} no ar` : '';
 
+    // Medidores da barra de status — o panorama que fica visível o tempo todo.
+    const noAr = ativas.length;
+    const aRevisar = feitas.filter(c => !c.revisada_em).length;
+    const medNoar = document.getElementById('med-noar');
+    medNoar.hidden = noAr === 0;
+    document.getElementById('m-noar').textContent = noAr;
+    document.getElementById('m-revisar').textContent = aRevisar;
+    // "contato hoje": das que terminaram hoje, quantas % falaram com alguém.
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const doDia = feitas.filter(c => new Date(c.finalizada_em ?? c.criada_em ?? 0) >= hoje);
+    const falaram = doDia.filter(c => !PROBLEMA.includes(c.status)).length;
+    document.getElementById('m-contato').textContent =
+      doDia.length ? Math.round(falaram / doDia.length * 100) + '%' : '—';
+
     document.getElementById('sec-aovivo').hidden = !ativas.length;
     sincronizar(document.getElementById('aovivo'), ativas, cartaoAoVivo, '.cartao');
 
@@ -746,6 +678,13 @@ async function atualizar(){
       if (alvo && c && ATIVOS.includes(c.status)) abrirDetalhe(alvo, id, true);
       else if (!alvo && escutas.has(id)) { escutas.get(id).desligar(); escutas.delete(id); }
     }
+
+    // Medidor da fila fica sempre fresco, sem depender de a aba estar aberta.
+    api('/fila').then(r => r.json()).then(d => {
+      const p = d.resumo?.pendente ?? 0;
+      document.getElementById('m-fila').textContent = p;
+      document.getElementById('c-fila').textContent = p ? `${p} na fila` : '';
+    }).catch(() => {});
   }catch{ /* rede caiu; a próxima rodada tenta de novo */ }
 }
 
@@ -1329,6 +1268,7 @@ async function verFila(){
     const ativos = Object.entries(d.resumo ?? {}).filter(([k]) => k !== 'arquivada');
     const pendentes = d.resumo?.pendente ?? 0;
     document.getElementById('c-fila').textContent = pendentes ? `${pendentes} na fila` : '';
+    document.getElementById('m-fila').textContent = pendentes;
 
     if (!ativos.length) {
       el.innerHTML = `<div class="vazio"><strong>A fila está vazia</strong>Cole uma planilha acima para carregar um lote.</div>`;
@@ -1431,6 +1371,7 @@ document.getElementById('btn-diag').addEventListener('click', async () => {
 carregarRoteiro();
 atualizar();
 setInterval(atualizar, 3000);
+
 </script>
 </body>
 </html>
