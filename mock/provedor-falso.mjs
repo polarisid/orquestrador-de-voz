@@ -47,8 +47,9 @@ createServer(async (req, res) => {
     if (tr) console.log('transbordo:', JSON.stringify(tr));
     const turn = json.conversation_config?.agent?.turn?.turn_timeout;
     const stream = json.conversation_config?.tts?.optimize_streaming_latency;
-    if (turn !== undefined || stream !== undefined)
-      console.log('latencia: turn=' + turn + ' streaming=' + stream);
+    const eag = json.conversation_config?.agent?.turn?.turn_eagerness;
+    if (turn !== undefined || stream !== undefined || eag)
+      console.log('latencia: turn=' + turn + ' streaming=' + stream + ' eagerness=' + eag);
     res.end(JSON.stringify({ agent_id: 'mock_agent' }));
     return;
   }

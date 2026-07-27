@@ -489,12 +489,43 @@ Não prometa retorno, desconto ou compensação.
 Não peça para avaliar em site nenhum.`,
 };
 
+export const LIVRE: Fluxo = {
+  id: 'livre',
+  nome: 'Prompt personalizado',
+  descricao: 'Você escreve o roteiro na hora. Só o telefone é obrigatório.',
+  etapas: [
+    { id: 'abertura', rotulo: 'Início' },
+    { id: 'confirmado', rotulo: 'Em andamento' },
+    { id: 'fim', rotulo: 'Encerrada' },
+  ],
+  campos: [
+    { nome: 'telefone', rotulo: 'Telefone com DDD', tipo: 'telefone', obrigatorio: true, exemplo: '79999998888' },
+    { nome: 'os_numero', rotulo: 'Ordem de serviço (opcional)', tipo: 'texto', obrigatorio: false },
+    { nome: 'cliente_nome', rotulo: 'Nome do cliente (opcional)', tipo: 'texto', obrigatorio: false },
+  ],
+  // Só um andaime: o texto real vem do editor no painel. Vale sozinho se o
+  // operador disparar sem escrever nada, mas a intenção é sempre substituir.
+  montarPrompt: (d) => `${IDIOMA}
+
+Você é o assistente da Smart Center Aracaju, assistência técnica autorizada Samsung.
+
+${REGRAS_DE_FALA}
+
+# Roteiro
+(Escreva aqui o roteiro desta ligação. Use {{cliente_nome}} e {{os_numero}} se preencher esses campos.)
+${d.cliente_nome ? `\nCliente: ${d.cliente_nome}` : ''}${d.os_numero ? `\nOrdem de serviço: ${d.os_numero}` : ''}
+
+# Encerramento
+Ao terminar, chame encerrar_triagem e encerre a ligação.`,
+};
+
 export const FLUXOS: Record<string, Fluxo> = {
   [TRIAGEM.id]: TRIAGEM,
   [RETIRADA.id]: RETIRADA,
   [AGENDAMENTO.id]: AGENDAMENTO,
   [DOCUMENTACAO.id]: DOCUMENTACAO,
   [SATISFACAO.id]: SATISFACAO,
+  [LIVRE.id]: LIVRE,
 };
 
 export const fluxoPadrao = TRIAGEM.id;

@@ -919,3 +919,56 @@ detalhe que abre no lugar.
 
 Todos os controles de antes continuam: nova ligação, roteiros, ajustes,
 diagnóstico, escuta, desligar, religar. Só a apresentação mudou.
+
+
+---
+
+## Prompt personalizado criado na hora
+
+Duas formas, ambas na gaveta Nova ligação.
+
+**Do zero.** Escolha o tipo "Prompt personalizado". Ele só exige telefone (nome
+e OS são opcionais). Escreva o roteiro inteiro no campo "Roteiro desta ligação"
+e dispare. Bom para casos que não se encaixam nos cinco fluxos.
+
+**Ajustando um fluxo.** Escolha qualquer tipo e clique em "Carregar do fluxo": o
+roteiro padrão daquele fluxo vem para o editor, com os campos já preenchidos.
+Ajuste o que quiser — vale só para esta ligação, sem alterar o padrão salvo.
+
+Em ambos, o campo vazio faz a ligação usar o roteiro padrão do tipo. Preenchido,
+o texto vale só para aquela chamada, e ela fica marcada com o selo "roteiro
+próprio" — assim você audita depois qual ligação usou texto avulso.
+
+A diferença para a aba Roteiros: lá você muda o padrão de todas as próximas
+ligações de um tipo; aqui é pontual, uma ligação só.
+
+
+---
+
+## Agente parava a cada ruído (vento, TV ao fundo)
+
+Causa: o agente estava interpretando qualquer som como "o cliente começou a
+falar" e cedendo a vez. O culpado NÃO era o turn_timeout — esse é a espera em
+silêncio. Era o **turn eagerness**, que controla quão cedo o agente reage a
+sinais de fala.
+
+Corrigido para **Patient**: o agente espera o cliente realmente terminar antes
+de responder, ignorando ruído de fundo. E o turn_timeout, que eu tinha baixado
+para 2s (o que piorava, fazendo o agente saltar cedo), voltou para 5s.
+
+Ajustável no painel, em Ajustes → Velocidade de resposta → "Paciência com o
+cliente":
+- **Paciente** (padrão) — ignora ruído, espera o cliente terminar. Use se o
+  agente corta sozinho.
+- **Normal** — equilíbrio.
+- **Ágil** — responde no primeiro instante; volta a cortar com ruído.
+
+Trade-off honesto: Paciente responde um pouco mais devagar que Ágil. Mas
+responder devagar é melhor que parar no meio da própria frase a cada carro que
+passa. Precisa de `atualizar-agente` para o padrão, ou salvar no painel.
+
+## Desligar durante a discagem
+
+O cartão "Chamando o celular…" agora tem, além de Ouvir, um botão **Desligar** —
+antes só dava para derrubar depois de atender. Útil quando você percebe que
+discou o número errado e quer cortar antes de tocar.

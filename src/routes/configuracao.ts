@@ -11,19 +11,22 @@ export async function rotasConfiguracao(app: FastifyInstance) {
     transbordo: await destinoTransbordo(),
     transbordo_aplicado_em: await lerConfig('transbordo_aplicado_em'),
     latencia_streaming: Number(await lerConfig('latencia_streaming', '4')),
-    latencia_turn: Number(await lerConfig('latencia_turn', '2')),
+    latencia_turn: Number(await lerConfig('latencia_turn', '5')),
+    latencia_eagerness: await lerConfig('latencia_eagerness', 'patient'),
     latencia_aplicada_em: await lerConfig('latencia_aplicada_em'),
     agente_configurado: Boolean(process.env.ELEVENLABS_AGENT_ID && process.env.ELEVENLABS_API_KEY),
     servidor_sip: process.env.IFALEI_SERVIDOR ?? 'sip.ifalei.com.br',
   }));
 
-  app.put<{ Body: { streaming?: number; turn_timeout?: number } }>(
+  app.put<{ Body: { streaming?: number; turn_timeout?: number; eagerness?: string } }>(
     '/configuracao/latencia',
     async (req, reply) => {
       const streaming = Number(req.body?.streaming ?? 4);
-      const turn = Number(req.body?.turn_timeout ?? 2);
+      const turn = Number(req.body?.turn_timeout ?? 5);
+      const eagerness = String(req.body?.eagerness ?? 'patient');
 
-      if (![0,1,2,3,4].includes(streaming) || turn < 1 || turn > 10) {
+      if (![0,1,2,3,4].includes(streaming) || turn < 1 || turn > 10
+          || !['eager','normal','patient'].includes(eagerness)) {
         return reply.code(400).send({
           erro: 'valor_invalido',
           mensagem: 'Streaming de 0 a 4; espera de 1 a 10 segundos.',
@@ -32,9 +35,10 @@ export async function rotasConfiguracao(app: FastifyInstance) {
 
       await gravarConfig('latencia_streaming', String(streaming));
       await gravarConfig('latencia_turn', String(turn));
+      await gravarConfig('latencia_eagerness', eagerness);
 
       try {
-        const aplicado = await aplicarLatencia(streaming, turn);
+        const aplicado = await aplicarLatencia(streaming, turn, eagerness);
         const em = await gravarConfig('latencia_aplicada_em', new Date().toISOString());
         return { ...aplicado, aplicado: true, aplicado_em: em };
       } catch (e) {

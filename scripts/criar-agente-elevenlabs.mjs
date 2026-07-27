@@ -361,7 +361,7 @@ const agente = await api('/convai/agents/create', {
       ...(process.env.ELEVENLABS_VOICE_ID ? { voice_id: process.env.ELEVENLABS_VOICE_ID } : {}),
       model_id: 'eleven_flash_v2_5',
     },
-    turn: { turn_timeout: 8 },
+    turn: { turn_timeout: 5, turn_eagerness: 'patient', silence_end_call_timeout: 20, mode: 'turn' },
     asr: { language: 'pt' },
   },
   platform_settings: {

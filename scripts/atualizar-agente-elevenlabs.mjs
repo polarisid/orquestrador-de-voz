@@ -175,10 +175,18 @@ const corpo = {
     // Quanto o agente espera de silencio antes de assumir que o cliente
     // terminou de falar. Mais baixo = responde mais rapido, mas corta quem
     // fala pausado. 0.5s e um meio-termo bom para telefonia brasileira.
-    // turn_timeout menor = o agente comeca a responder mais cedo depois que
-    // o cliente para de falar. 2s corta menos que valores agressivos, mas ja
-    // e bem mais rapido que os 7s anteriores.
-    turn: { turn_timeout: 2, silence_end_call_timeout: 20, mode: 'turn' },
+    // ATENCAO ao ajustar isto:
+    //  - turn_timeout e a espera em SILENCIO antes do agente assumir a vez.
+    //    Curto demais faz o agente saltar cedo. 5s e um bom meio-termo.
+    //  - turn_eagerness 'patient' faz o agente esperar o cliente terminar antes
+    //    de responder. E o que impede ruido (vento, TV) de cortar a fala dele.
+    //    Foi a causa do agente parar a cada barulho.
+    turn: {
+      turn_timeout: 5,
+      turn_eagerness: 'patient',
+      silence_end_call_timeout: 20,
+      mode: 'turn',
+    },
   },
 };
 

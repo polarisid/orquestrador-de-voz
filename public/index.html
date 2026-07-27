@@ -368,7 +368,19 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
       <select id="sel-fluxo"></select>
       <small class="dica" id="dica-fluxo"></small></label>
     <form id="form"><div id="campos"></div>
-      <button type="submit" class="btn btn-forte" style="width:100%;padding:11px" id="btn-ligar">Ligar para o cliente</button>
+
+      <div id="area-roteiro-ligacao" style="margin-top:6px">
+        <label style="margin-bottom:6px"><span class="rotulo-com-acao" style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+          Roteiro desta ligação
+          <button type="button" class="link" id="btn-puxar-roteiro"
+            style="background:none;border:0;color:var(--sinal);font-size:12px;text-decoration:underline;cursor:pointer">Carregar do fluxo</button>
+        </span></label>
+        <textarea id="roteiro-ligacao" spellcheck="false" placeholder="Deixe em branco para usar o roteiro padrão do tipo escolhido, ou escreva um roteiro só para esta ligação."
+          style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.6;min-height:150px"></textarea>
+        <small class="dica" id="dica-roteiro-ligacao">Vazio = usa o roteiro salvo do tipo escolhido. Escrito = vale só para esta ligação. Use <code>{{cliente_nome}}</code>, <code>{{os_numero}}</code>.</small>
+      </div>
+
+      <button type="submit" class="btn btn-forte" style="width:100%;padding:11px;margin-top:8px" id="btn-ligar">Ligar para o cliente</button>
       <p class="aviso" id="aviso" hidden></p></form>
   </div>
 </aside>
@@ -400,12 +412,20 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
 
     <p class="rotulo" style="margin-top:28px">Velocidade de resposta</p>
     <p class="explica">Quão rápido o agente responde. Salvar aplica no agente na hora.</p>
-    <label><span>Espera antes de responder — <b id="v-turn">2,0</b>s</span>
-      <input type="range" id="lat-turn" min="1" max="6" step="0.5" value="2">
+    <label><span>Espera antes de responder — <b id="v-turn">5,0</b>s</span>
+      <input type="range" id="lat-turn" min="1" max="8" step="0.5" value="5">
       <small class="dica">Menor responde mais rápido; muito baixo corta quem fala pausado. Comece em 2s.</small></label>
     <label><span>Prioridade de velocidade do áudio — <b id="v-stream">4</b></span>
       <input type="range" id="lat-stream" min="0" max="4" step="1" value="4">
       <small class="dica">0 é o áudio mais suave, 4 o mais rápido. Em ligação, 4 quase sempre vale mais.</small></label>
+
+    <label><span>Paciência com o cliente</span>
+      <select id="lat-eagerness">
+        <option value="patient">Paciente — espera o cliente terminar (recomendado)</option>
+        <option value="normal">Normal — equilíbrio</option>
+        <option value="eager">Ágil — responde no primeiro instante</option>
+      </select>
+      <small class="dica">Se o agente para a cada ruído de fundo (vento, TV), deixe em <b>Paciente</b>. "Ágil" responde mais rápido, mas corta com qualquer som.</small></label>
     <div class="barra-acoes"><button class="btn btn-forte" id="btn-salvar-latencia">Salvar e aplicar</button><span class="estado" id="estado-latencia"></span></div>
 
     <p class="explica" style="margin-top:18px"><strong>Transferência consome um segundo canal.</strong> Com um único canal no tronco, ela pode falhar por falta de linha.</p>
@@ -585,6 +605,7 @@ function selos(c){
   return [
     c.fluxo && c.fluxo !== cfgFluxos.padrao
       ? `<span class="selo tipo">${esc(FLUXOS[c.fluxo]?.nome ?? c.fluxo)}</span>` : '',
+    c.roteiro_customizado ? `<span class="selo tipo">roteiro próprio</span>` : '',
     g ? `<span class="selo ${g[0]}">${g[1]}</span>` : '',
     c.revisada_em ? `<span class="selo revisada">revisada</span>` : '',
     `<span class="selo ${cls}">${esc(txt)}</span>`,
@@ -609,6 +630,7 @@ function cartaoAoVivo(c){
       <span class="ring"></span> Chamando o celular…
       <button type="button" class="btn btn-escutar btn-escutar-cartao" data-ligado="0" data-id="${c.id}">
         Ouvir <span class="nivel"><i></i><i></i><i></i><i></i></span></button>
+      <button type="button" class="btn btn-perigo btn-desligar-cartao" data-id="${c.id}">Desligar</button>
     </div>` : ''}
     <div class="detalhe" hidden></div>
   </article>`;
@@ -741,6 +763,21 @@ document.querySelector('main').addEventListener('click', ev => {
     const e = new Escuta(id, bc, { get textContent(){return '';}, set textContent(v){} });
     escutas.set(id, e);
     e.ligar().catch(() => {});
+    return;
+  }
+  // Desligar direto do cartão, sem abrir o detalhe.
+  const bd = ev.target.closest('.btn-desligar-cartao');
+  if (bd) {
+    ev.stopPropagation();
+    const id = bd.dataset.id;
+    bd.disabled = true; bd.textContent = 'Desligando…';
+    api(`/calls/${id}/desligar`, { method:'POST' })
+      .then(r => {
+        if (!r.ok) { bd.disabled = false; bd.textContent = 'Desligar'; return; }
+        escutas.get(id)?.desligar(); escutas.delete(id);
+        prontos.delete(id); atualizar();
+      })
+      .catch(() => { bd.disabled = false; bd.textContent = 'Desligar'; });
     return;
   }
   if (ev.target.closest('.detalhe')) return;
@@ -1075,6 +1112,19 @@ function montarCampos(){
 selFluxo.addEventListener('change', () => { fluxoAtual = selFluxo.value; montarCampos(); });
 montarCampos();
 
+// "Carregar do fluxo": traz o roteiro padrão para o editor, como ponto de
+// partida. O operador ajusta o que quiser; vale só para esta ligação.
+document.getElementById('btn-puxar-roteiro').addEventListener('click', async () => {
+  const alvo = document.getElementById('roteiro-ligacao');
+  const dados = Object.fromEntries(new FormData(document.getElementById('form')));
+  const qs = new URLSearchParams({ ...dados }).toString();
+  try{
+    const d = await (await api(`/fluxos/${fluxoAtual}/roteiro?${qs}`)).json();
+    alvo.value = d.salvo || d.padrao || '';
+    alvo.focus();
+  }catch{ alvo.placeholder = 'Não consegui carregar o roteiro do fluxo.'; }
+});
+
 const aviso = (tipo, txt) => {
   const el = document.getElementById('aviso');
   el.className = 'aviso ' + tipo;
@@ -1086,18 +1136,20 @@ document.getElementById('form').addEventListener('submit', async ev => {
   ev.preventDefault();
   const btn = document.getElementById('btn-ligar');
   const dados = Object.fromEntries(new FormData(ev.target));
+  const roteiro = document.getElementById('roteiro-ligacao').value.trim();
   btn.disabled = true; btn.textContent = 'Discando…';
   try{
     const r = await api('/calls', {
       method:'POST', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ fluxo: fluxoAtual, dados }),
+      // roteiro só vai quando preenchido — vazio deixa o backend usar o padrão.
+      body: JSON.stringify({ fluxo: fluxoAtual, dados, ...(roteiro ? { roteiro } : {}) }),
     });
     const corpo = await r.json();
     if (r.status === 503) aviso('erro','Faltam variáveis no servidor: ' + (corpo.faltando ?? []).join(', '));
     else if (r.status === 400) aviso('erro','Preencha: ' + (corpo.faltando ?? []).join(', '));
     else if (r.status === 202) aviso('erro','Fora da janela de atendimento (8h às 20h, segunda a sábado).');
     else if (!r.ok) aviso('erro','A chamada não saiu. Verifique o tronco e tente de novo.');
-    else { ev.target.reset(); document.getElementById('aviso').hidden = true; fecharGavetas(); }
+    else { ev.target.reset(); document.getElementById('roteiro-ligacao').value = ''; document.getElementById('aviso').hidden = true; fecharGavetas(); }
   }catch{ aviso('erro','Sem resposta do servidor.'); }
   btn.disabled = false; btn.textContent = 'Ligar para o cliente';
   atualizar();
@@ -1164,7 +1216,7 @@ document.getElementById('btn-salvar-latencia').addEventListener('click', async e
   try{
     const r = await api('/configuracao/latencia', {
       method:'PUT', headers:{'content-type':'application/json'},
-      body: JSON.stringify({ streaming: Number(vStream.value), turn_timeout: Number(vTurn.value) }),
+      body: JSON.stringify({ streaming: Number(vStream.value), turn_timeout: Number(vTurn.value), eagerness: document.getElementById('lat-eagerness').value }),
     });
     const d = await r.json();
     if (!r.ok) estadoLatencia(d.mensagem ?? d.erro, true);
@@ -1177,8 +1229,9 @@ async function carregarAjustes(){
   try{
     const d = await (await api('/configuracao')).json();
     document.getElementById('transbordo').value = d.transbordo ?? '';
-    vTurn.value = d.latencia_turn ?? 2;
+    vTurn.value = d.latencia_turn ?? 5;
     vStream.value = d.latencia_streaming ?? 4;
+    document.getElementById('lat-eagerness').value = d.latencia_eagerness ?? 'patient';
     document.getElementById('v-turn').textContent = fmtTurn(vTurn.value);
     document.getElementById('v-stream').textContent = vStream.value;
     if (d.latencia_aplicada_em)

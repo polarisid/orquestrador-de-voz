@@ -72,25 +72,26 @@ export async function aplicarTransbordo(destino: string) {
  *
  * Ficam no painel porque o ponto certo se descobre ouvindo, não no código.
  */
-export async function aplicarLatencia(streaming: number, turnTimeout: number) {
+export async function aplicarLatencia(streaming: number, turnTimeout: number, eagerness?: string) {
   const agente = process.env.ELEVENLABS_AGENT_ID;
   const chave = process.env.ELEVENLABS_API_KEY;
   if (!agente || !chave) throw new Error('ELEVENLABS_AGENT_ID ou ELEVENLABS_API_KEY ausente');
 
   const s = Math.max(0, Math.min(4, Math.round(streaming)));
   const t = Math.max(1, Math.min(10, Number(turnTimeout)));
+  const e = ['eager', 'normal', 'patient'].includes(eagerness ?? '') ? eagerness : 'patient';
 
   const r = await fetch(`${BASE()}/convai/agents/${agente}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json', 'xi-api-key': chave },
     body: JSON.stringify({
       conversation_config: {
-        agent: { turn: { turn_timeout: t } },
+        agent: { turn: { turn_timeout: t, turn_eagerness: e } },
         tts: { optimize_streaming_latency: s },
       },
     }),
   });
 
   if (!r.ok) throw new Error(`elevenlabs ${r.status}: ${(await r.text()).slice(0, 400)}`);
-  return { streaming: s, turn_timeout: t };
+  return { streaming: s, turn_timeout: t, eagerness: e };
 }
