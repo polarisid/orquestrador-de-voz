@@ -43,6 +43,8 @@ createServer(async (req, res) => {
     const t = json.conversation_config?.agent?.prompt?.built_in_tools ?? {};
     console.log('\n=== AGENTE ATUALIZADO ===');
     console.log('system tools:', Object.keys(t).join(', ') || '(nenhuma)');
+    const fm = json.conversation_config?.agent?.first_message;
+    if (fm !== undefined) console.log('first_message recebida:', fm === '' ? '(vazia) OK' : JSON.stringify(fm));
     const tr = t.transfer_to_number?.params?.transfers?.[0]?.transfer_destination;
     if (tr) console.log('transbordo:', JSON.stringify(tr));
     const turn = json.conversation_config?.agent?.turn?.turn_timeout;
