@@ -216,6 +216,14 @@ audio{width:100%}
 .btn-escutar[data-ligado="1"]{background:var(--sinal);border-color:var(--sinal);color:#fff}
 input[type=range]{width:100%;accent-color:var(--sinal);margin:2px 0}
 label > span b{color:var(--sinal);font-family:'IBM Plex Mono',monospace}
+.rot-var{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.var-tag{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;
+  color:var(--sinal);background:var(--sinal-claro);border:1px solid #B4D8D1;
+  border-radius:4px;padding:1px 6px;cursor:pointer;flex:none;line-height:1.5;
+}
+.var-tag:hover{background:var(--sinal);color:#fff;border-color:var(--sinal)}
+.var-tag.copiado{background:var(--sinal);color:#fff}
 
 /* botões genéricos usados no detalhe/gavetas */
 .btn{border:1px solid var(--linha);background:var(--carta);color:var(--tinta);border-radius:var(--r);padding:7px 13px;font-size:13px;font-weight:500}
@@ -377,7 +385,7 @@ dialog h2{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;
         </span></label>
         <textarea id="roteiro-ligacao" spellcheck="false" placeholder="Deixe em branco para usar o roteiro padrão do tipo escolhido, ou escreva um roteiro só para esta ligação."
           style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.6;min-height:150px"></textarea>
-        <small class="dica" id="dica-roteiro-ligacao">Vazio = usa o roteiro salvo do tipo escolhido. Escrito = vale só para esta ligação. Use <code>{{cliente_nome}}</code>, <code>{{os_numero}}</code>.</small>
+        <small class="dica" id="dica-roteiro-ligacao">Vazio = usa o roteiro salvo do tipo escolhido. Escrito = vale só para esta ligação. Clique em qualquer <code>{{variável}}</code> acima para inseri-la aqui — ela é trocada pelo valor real na hora da ligação.</small>
       </div>
 
       <button type="submit" class="btn btn-forte" style="width:100%;padding:11px;margin-top:8px" id="btn-ligar">Ligar para o cliente</button>
@@ -1102,7 +1110,9 @@ function montarCampos(){
         x.tipo === 'telefone'
           ? `<input class="mono" name="${x.nome}" ${req} inputmode="numeric" pattern="[0-9]{10,11}" ${ph} title="Só dígitos, com DDD">`
           : `<input name="${x.nome}" ${req} ${ph}>`;
-      return `<label><span>${esc(x.rotulo)}</span>${corpo}</label>`;
+      // A variável fica visível e clicável: clicar copia {{nome}} para colar no roteiro.
+      const varTag = `<button type="button" class="var-tag" data-var="{{${x.nome}}}" title="Clique para copiar">{{${x.nome}}}</button>`;
+      return `<label><span class="rot-var">${esc(x.rotulo)}${varTag}</span>${corpo}</label>`;
     };
     if (par) { html.push(`<div class="dupla">${um(c)}${um(par)}</div>`); n++; }
     else html.push(um(c));
@@ -1111,6 +1121,26 @@ function montarCampos(){
 }
 selFluxo.addEventListener('change', () => { fluxoAtual = selFluxo.value; montarCampos(); });
 montarCampos();
+
+// Clique na tag {{variavel}}: copia e, se o editor de roteiro está aberto,
+// insere no ponto do cursor. Quem escreve roteiro não precisa decorar nomes.
+document.getElementById('campos').addEventListener('click', ev => {
+  const tag = ev.target.closest('.var-tag');
+  if (!tag) return;
+  ev.preventDefault();
+  const texto = tag.dataset.var;
+  const editor = document.getElementById('roteiro-ligacao');
+  if (editor && editor.value.trim() !== '') {
+    const [a, b] = [editor.selectionStart, editor.selectionEnd];
+    editor.value = editor.value.slice(0, a) + texto + editor.value.slice(b);
+    editor.selectionStart = editor.selectionEnd = a + texto.length;
+    editor.focus();
+  }
+  navigator.clipboard?.writeText(texto).catch(() => {});
+  const antes = tag.textContent;
+  tag.classList.add('copiado'); tag.textContent = 'copiado ✓';
+  setTimeout(() => { tag.classList.remove('copiado'); tag.textContent = antes; }, 900);
+});
 
 // "Carregar do fluxo": traz o roteiro padrão para o editor, como ponto de
 // partida. O operador ajusta o que quiser; vale só para esta ligação.

@@ -972,3 +972,24 @@ passa. Precisa de `atualizar-agente` para o padrão, ou salvar no painel.
 O cartão "Chamando o celular…" agora tem, além de Ouvir, um botão **Desligar** —
 antes só dava para derrubar depois de atender. Útil quando você percebe que
 discou o número errado e quer cortar antes de tocar.
+
+
+---
+
+## Variáveis do roteiro visíveis no formulário
+
+Cada campo da Nova ligação agora mostra o nome da sua variável — a tag verde
+<code>{{nome}}</code> ao lado do rótulo. Clicar copia (e, se o editor de roteiro
+estiver aberto com texto, insere no cursor). Assim dá para montar um roteiro
+personalizado sem decorar os nomes.
+
+Na hora da ligação, cada <code>{{variável}}</code> é trocada pelo valor que você
+preencheu. Se um campo ficou vazio, a tag some do texto.
+
+As variáveis por tipo de ligação:
+- **Triagem**: os_numero, cliente_nome, cliente_endereco, telefone, produto_linha, produto_modelo, garantia, sintoma_declarado
+- **Retirada**: os_numero, cliente_nome, telefone, produto_linha, produto_modelo, servico_realizado, pagamento, prazo_guarda
+- **Confirmação de visita**: os_numero, cliente_nome, telefone, cliente_endereco, data_visita, turno, produto_linha
+- **Documentação**: os_numero, cliente_nome, telefone, pendencia, dias_parado
+- **Satisfação**: os_numero, cliente_nome, telefone, servico_realizado, tecnico
+- **Personalizado**: telefone, os_numero, cliente_nome
